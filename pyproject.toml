@@ -19,3 +19,5 @@ classifiers = [
   "License :: Other/Gratis License",
   "Operating System :: OS Independent"
 ]
+homepage = "https://github.com/falseywinchnet/MiCE"
+repository = "https://github.com/falseywinchnet/MiCE"
