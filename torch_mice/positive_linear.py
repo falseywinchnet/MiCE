@@ -1,3 +1,22 @@
+# -*- coding: utf-8 -*-
+# Copyright © 2025 Joshuah Rainstar
+# License: see ../LICENSE.txt
+
+"""
+Positive linear layers with Hoedt–Klambauer parameterization,
+ensuring strictly positive weights via softplus².
+"""
+
+import math
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+__all__ = [
+    "PositiveLinearHK",
+    "PositiveLinear3DHK",
+]
+
 class PositiveLinearHK(nn.Module): #Hoedt–Klambauer MUST be used always
     def __init__(self, d_in, d_out, bias=True):
         super().__init__()
