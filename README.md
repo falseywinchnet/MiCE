@@ -56,7 +56,7 @@ MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts
 ## Quickstart
 
 ```python
-from torch-mice import VectorHull
+from torch_mice import VectorHull
 
 model = VectorHull(in_dim=512, petals=8)   # convex, efficient MoE
 y = model(x)                               # forward pass
