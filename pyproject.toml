@@ -1,7 +1,6 @@
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
-
 [project]
 name = "torch-mice"
 version = "0.1.0"
@@ -21,6 +20,5 @@ dependencies = [
   "torch>=1.8.0"
 ]
 python-requires = ">=3.7"
-
 homepage = "https://github.com/falseywinchnet/MiCE"
 repository = "https://github.com/falseywinchnet/MiCE"
