@@ -59,12 +59,13 @@ Importantly, the cascaded gating approach outcompetes Kolmogorov-Arnold Network 
 ## Quickstart
 
 ```python
+pip install torch_mice
 from torch_mice import VectorHull
 
 model = VectorHull(in_dim=512, petals=8)   # convex, efficient MoE
 y = model(x)                               # forward pass
 
-
+```
 ## License
 
 Licensed under the Gratis Public License © 2025 Joshuah Rainstar
