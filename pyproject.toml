@@ -11,13 +11,16 @@ license = { file = "LICENSE.txt" }
 authors = [
   { name="Joshuah Rainstar", email="Joshuah.Rainstar@gmail.com" }
 ]
-dependencies = [
-  "torch>=1.8.0"
-]
+keywords = ["convex", "mixture-of-experts", "pytorch", "icnn", "machine-learning"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: Other/Gratis License",
   "Operating System :: OS Independent"
 ]
+dependencies = [
+  "torch>=1.8.0"
+]
+python-requires = ">=3.7"
+
 homepage = "https://github.com/falseywinchnet/MiCE"
 repository = "https://github.com/falseywinchnet/MiCE"
