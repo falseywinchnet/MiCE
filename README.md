@@ -4,8 +4,7 @@
 
 MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts models. Instead of softmax routing or hard top-k gating, MiCE fuses networks of convex “petal” networks by **overlapping max-of-means** with learnable scalar shifts—guaranteeing convexity, interpretability, and efficient compute.
 
-This work builds on research done at Carnegie Mellon [Input-Convex Neural Networks](https://arxiv.org/abs/1609.07152) and empirically explores convex and nuanced recombination of results.
-Importantly, the cascaded gating approach outcompetes Kolmogorov-Arnold Network basis interpretation, while the cascaded mean-max-shift approach outcompletes LogSumExp. Both approaches outcompete their comparable systems in efficiency as well as in loss behavior. 
+This work builds on research done at Carnegie Mellon [Input-Convex Neural Networks](https://arxiv.org/abs/1609.07152) and Johannes Kepler University [Principled Weight Initialisation for Input-Convex Neural Networks](https://arxiv.org/abs/2312.12474) and the development process empirically explored a multitude of domains of convex and nuanced recombination of results. The concise explanation is that the cascaded gating approach outcompetes Kolmogorov-Arnold Network basis interpretation, while the cascaded mean-max-shift approach outcompletes LogSumExp. Both approaches outcompete the mentioned comparable systems in efficiency as well as in loss behavior over convex and non-convex problems, although it is not by this implied that this or other convex models can efficiently approximate non-convex problems. 
 
 ## Why MiCE?
 
