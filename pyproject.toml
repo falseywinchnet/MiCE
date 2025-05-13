@@ -6,6 +6,7 @@ name = "torch-mice"
 version = "0.1.0"
 description = "Mixture of Convex Experts (MiCE) for PyTorch"
 readme = "README.md"
+readme-content-type = "text/markdown"
 license = { file = "LICENSE.txt" }
 authors = [
   { name="Joshuah Rainstar", email="Joshuah.Rainstar@gmail.com" }
