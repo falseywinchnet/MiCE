@@ -2,7 +2,10 @@
 
 ## What is MiCE?
 
-MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts models. Instead of softmax routing or hard top-k gating, MiCE fuses small convex “petal” networks by **overlapping max-of-means** with learnable scalar shifts—guaranteeing convexity, interpretability, and efficient compute.
+MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts models. Instead of softmax routing or hard top-k gating, MiCE fuses networks of convex “petal” networks by **overlapping max-of-means** with learnable scalar shifts—guaranteeing convexity, interpretability, and efficient compute.
+
+This work builds on research done at Carnegie Mellon [Input-Convex Neural Networks](https://arxiv.org/abs/1609.07152) and empirically explores convex and nuanced recombination of results.
+Importantly, the cascaded gating approach outcompetes Kolmogorov-Arnold Network basis interpretation, while the cascaded mean-max-shift approach outcompletes LogSumExp. Both approaches outcompete their comparable systems in efficiency as well as in loss behavior. 
 
 ## Why MiCE?
 
