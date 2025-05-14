@@ -11,16 +11,6 @@ MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts
 
 This guarantees convexity, interpretability, and efficient compute without exponentials or discrete dispatch.
 
----
-
-## What’s new in the Atlas edition
-
-- **Fixed orthonormal projections** (`AtlasProjector`) per petal  
-- **Optional exact inversion** of each petal’s output back to global coordinates (`invert=True`)  
-- **Simplified fusion**: drop learnable shifts when inversion aligns all charts  
-- **Smoother gradients** and better boundary regularity across petals  
-
----
 
 ## Why MiCE?
 
