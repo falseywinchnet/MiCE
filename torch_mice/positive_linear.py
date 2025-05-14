@@ -31,7 +31,7 @@ class PositiveLinearHK(nn.Module): #Hoedt–Klambauer MUST be used always
 
     @property
     def weight(self):
-        return F.softplus(self.raw).pow(2)  # ensures strict positivity
+        return F.softplus(self.raw)  # ensures strict positivity
 
     def forward(self, x):
         return F.linear(x, self.weight, self.bias)
@@ -61,7 +61,7 @@ class PositiveLinear3DHK(nn.Module):
             W_squared = W ** 2
             norms = torch.sqrt((W_squared).sum(dim=(1, 2), keepdim=True) + 1e-12)  # (P,1,1)
             W = W * (self.norm_target / norms)
-        return W.pow(2)
+        return W
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (P, N, D_in)
