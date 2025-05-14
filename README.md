@@ -9,8 +9,8 @@ MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts
 3. **(Optional) exact inversion** back to the global frame  
 4. **Overlapping mean-of-pairs + max** fusion  
 
-This guarantees convexity, interpretability, and efficient compute without exponentials or discrete dispatch.
-
+This guarantees convexity, interpretability, and efficient compute without exponentials or discrete dispatch- but only inside the petals, for now.
+Convexity distortions do happen at the edge of petals, and work is ongoing to evaluate this problem.
 
 ## Why MiCE?
 
