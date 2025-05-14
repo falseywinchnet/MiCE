@@ -66,53 +66,40 @@ class BatchedICNN(nn.Module):
         self.out_bias = nn.Parameter(torch.zeros(self.P, self.d2))
         self.act      = nn.Softplus()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x_p: torch.Tensor, x_flat: torch.Tensor) -> torch.Tensor:
         """
-        Forward pass.
-
         Args:
-            x: tensor of shape (..., D)
-
+            x_p:    (P, N, D_in)  — per-petal warped inputs
+            x_flat: (N, D_in)     — original inputs for gates
         Returns:
-            tensor of shape (..., P, D_out)
+            (N, P, D_out)
         """
-        orig_shape = x.shape
-        x_flat = x.reshape(-1, self.in_dim)        # (N, D)
-        N      = x_flat.size(0)
+        P, N, D = x_p.shape
+        assert P == self.P and D == self.in_dim
+        assert x_flat.shape == (N, D)
 
-        # vector gates
-        g0 = self.gate0_net(x_flat)               # (N, d1)
-        g0 = g0.unsqueeze(0).expand(self.P, N, self.d1)
-        g1 = self.gate1_net(x_flat)               # (N, d2)
-        g1 = g1.unsqueeze(0).expand(self.P, N, self.d2)
+        # 1) main gates
+        g0 = self.gate0_net(x_flat).unsqueeze(0).expand(P, N, self.d1)
+        g1 = self.gate1_net(x_flat).unsqueeze(0).expand(P, N, self.d2)
 
-        # duplicate input across petals
-        x_in = x_flat.unsqueeze(0).expand(self.P, N, self.in_dim)  # (P, N, D)
-
-        # layer0 + gate
-        z0 = self.layer0(x_in)                     # (P, N, d1)
-        z0 = self.act(z0 + g0)
-
-        # extra per-petal gates
+        # 2) extra gates
         extra0 = torch.stack([g(x_flat) for g in self.extra_gate0_nets], dim=0)
+        extra1 = torch.stack([g(x_flat) for g in self.extra_gate1_nets], dim=0)
+
+        # 3) layer0 + gates
+        z0 = self.act(self.layer0(x_p) + g0)
         z0 = self.act(z0 + extra0)
 
-        # layer1 + gate
-        z1 = self.layer1(z0)                       # (P, N, d2)
-        z1 = self.act(z1 + g1)
-
-        extra1 = torch.stack([g(x_flat) for g in self.extra_gate1_nets], dim=0)
+        # 4) layer1 + gates
+        z1 = self.act(self.layer1(z0) + g1)
         z1 = self.act(z1 + extra1)
 
-        # residual path
-        res_in = x_flat.unsqueeze(0).expand(self.P, N, self.in_dim)
-        res_in = torch.cat([res_in, res_in], dim=-1)  # (P, N, 2*D)
-        res    = self.res_proj(res_in)                # (P, N, d2)
+        # 5) residual
+        res_in = torch.cat([x_p, x_p], dim=-1)      # (P, N, 2*D)
+        res    = self.res_proj(res_in)              # (P, N, d2)
 
-        # combine + bias
-        out = self.act(z1 + res) + self.out_bias.unsqueeze(1)  # (P, N, d2)
+        # 6) combine + bias
+        out_p = self.act(z1 + res) + self.out_bias.unsqueeze(1)  # (P, N, d2)
 
-        # reshape back to original leading dims + (P, out_dim)
-        out = out.permute(1, 0, 2)  # (N, P, d2)
-        new_shape = list(orig_shape[:-1]) + [self.P, self.out_dim]
-        return out.reshape(new_shape)
+        # 7) permute to (N, P, D_out)
+        return out_p.permute(1, 0, 2)
