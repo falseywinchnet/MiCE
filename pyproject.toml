@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torch-mice"
-version = "0.4.1"
+version = "0.4.2"
 description = "Mixture of Convex Experts (MiCE) for PyTorch"
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE.txt" }
