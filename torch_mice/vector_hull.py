@@ -53,33 +53,41 @@ class VectorHull(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: (..., D) or (B, S, D)
-        returns: (..., out_dim)
+        Optimized forward pass with fast-path for petals==1,
+        and efficient group indexing for petals > 1.
         """
-        # Handle optional sequence dim
         unsqueeze = False
         if x.dim() == 2:
             x = x.unsqueeze(1)  # (B, 1, D)
             unsqueeze = True
 
-        out_all = self.petals(x)               # (B, S, P, D_out)
+        out_all = self.petals(x)  # (B, S, P, D_out)
         B, S, P, D = out_all.shape
-        G = self.G
 
-        # Gather each overlapping pair: (B, S, G, 2, D_out)
-        idx = self.group_indices.view(1, 1, G, 2, 1).expand(B, S, G, 2, D)
-        expanded = out_all.unsqueeze(2).expand(B, S, G, P, D)
-        grouped = torch.gather(expanded, dim=3, index=idx)
+        # === Fast-path: single petal ===
+        if P == 1:
+            out = out_all.squeeze(2)  # (B, S, D_out)
+            if unsqueeze:
+                return out.squeeze(1)  # (B, D_out)
+            return out
 
-        # Mean within each group and add static shift
-        means = grouped.mean(dim=3)            # (B, S, G, D_out)
-        shifts = self.shifts.view(1, 1, G, 1)  # (1, 1, G, 1)
-        shifted = means + shifts               # (B, S, G, D_out)
+        # === Optimized group indexing ===
+        # out_all: (B, S, P, D) → (B*S, P, D)
+        out_2d = out_all.view(-1, P, D)
 
-        # Max over groups
-        out, _ = shifted.max(dim=2)            # (B, S, D_out)
+        # Gather indices as (G*2,)
+        flat_indices = self.group_indices.view(-1)  # (2*G,)
+        selected = out_2d.index_select(1, flat_indices)  # (B*S, 2*G, D)
 
-        # Restore original shape if needed
+        # Reshape to (B*S, G, 2, D) → mean over dim=2
+        grouped = selected.view(B, S, self.G, 2, D)
+        means = grouped.mean(dim=3)  # (B, S, G, D)
+
+        # Add learnable shift and reduce
+        shifted = means + self.shifts.view(1, 1, self.G, 1)
+        out, _ = shifted.max(dim=2)  # (B, S, D)
+
         if unsqueeze:
-            out = out.squeeze(1)               # (B, D_out)
+            out = out.squeeze(1)  # (B, D)
+
         return out
