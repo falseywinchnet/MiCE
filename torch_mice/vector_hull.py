@@ -72,6 +72,7 @@ class VectorHull(nn.Module):
 
         # if inversion requested, bring each petal output back to global frame
         if self.invert:
+            assert self.out_dim == self.in_dim, "Cannot invert unless out_dim == in_dim; projection is only defined on input space"
             # permute → (P, N, out_dim)
             f_p = f_p.permute(1, 0, 2)
             # inverse‐project → (N, P, out_dim)
