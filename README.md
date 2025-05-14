@@ -1,70 +1,74 @@
-# MiCE(Mixture of Convex Experts)
+# MiCE (Mixture of Convex Experts)
 
 ## What is MiCE?
 
-MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts models. Instead of softmax routing or hard top-k gating, MiCE fuses networks of convex “petal” networks by **overlapping max-of-means** with learnable scalar shifts—guaranteeing convexity, interpretability, and efficient compute.
+MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts models via a novel **max-of-means atlas**.  Instead of softmax routing or hard top-k gating, MiCE fuses an ensemble of convex “petal” subnetworks with a fixed, irreducible atlas of affine charts:
 
-This work builds on research done at Carnegie Mellon [Input-Convex Neural Networks](https://arxiv.org/abs/1609.07152) and Johannes Kepler University [Principled Weight Initialisation for Input-Convex Neural Networks](https://arxiv.org/abs/2312.12474) and the development process empirically explored a multitude of domains of convex and nuanced recombination of results. The concise explanation is that the cascaded gating approach outcompetes Kolmogorov-Arnold Network basis interpretation, while the cascaded mean-max-shift approach outcompletes LogSumExp. Both approaches outcompete the mentioned comparable systems in efficiency as well as in loss behavior over convex and non-convex problems, although it is not by this implied that this or other convex models can efficiently approximate non-convex problems. 
+1. **Forward projection** into each petal’s chart  
+2. **Convex evaluation** in chart space (Input-Convex Neural Nets)  
+3. **(Optional) exact inversion** back to the global frame  
+4. **Overlapping mean-of-pairs + max** fusion  
+
+This guarantees convexity, interpretability, and efficient compute without exponentials or discrete dispatch.
+
+---
+
+## What’s new in the Atlas edition
+
+- **Fixed orthonormal projections** (`AtlasProjector`) per petal  
+- **Optional exact inversion** of each petal’s output back to global coordinates (`invert=True`)  
+- **Simplified fusion**: drop learnable shifts when inversion aligns all charts  
+- **Smoother gradients** and better boundary regularity across petals  
+
+---
 
 ## Why MiCE?
 
-- **Convexity guarantees**  
-  Every MiCE model computes a convex function of its inputs.  This ensures stable optimization, monotonic gradient behavior, and global convergence properties that standard MLPs and hard-MoE lack.
+- **Global convexity**  
+  Each chart \(R_p \circ f_p \circ A_p\) is convex; max-fusion preserves convexity in any dimension.
+
+- **Two operating modes**  
+  - **Forward-only** (`invert=False`): fast chart tiling with learnable shifts  
+  - **Atlas mode**  (`invert=True`): full chart atlas with exact reprojection, no shifts needed
 
 - **Efficiency**  
-  No exponentials, no log-sum-exp, no discrete routing.  Max-of-means fusion costs only a handful of adds, means, and a single max per group.  Memory and FLOPs scale **~2.6×** a 2-layer MLP with 4× expansion—far cheaper than full softmax MoE.
+  No softmax, no log-sum-exp, no sparse dispatch.  Fusion is just a handful of GEMMs, adds, and a single max per group.  Compute scales ~2.6× a 2-layer MLP.
 
 - **Interpretability**  
-  Each petal specializes in a convex region; groups overlap, shifts encode priors, and the max operation cleanly partitions input space.  You can visualize which expert wins where.
+  Clear regions of dominance — visualize arg-max and margins over petals in any 2-D slice.  
 
-## How MiCE Differs
+---
 
-| Feature               | MiCE (MoMx)         | Softmax MoE            | Hard Routing MoE      | Standard MLP         |
-|-----------------------|---------------------|------------------------|-----------------------|----------------------|
-| **Routing**           | max(mean(…))        | softmax(weights)       | top-k expert mask     | monolithic           |
-| **Convexity**         | ✅                  | ✅ (scalar only)       | ❌                     | ❌                    |
-| **Compute cost**      | ~2.6× MLP           | >10× (exponentials)    | ~k× experts           | baseline             |
-| **Memory footprint**  | ~2.6× params        | high (dense activations)| high (expert states)  | baseline             |
-| **Gradient flow**     | dense in groups     | dense                  | sparse (top-k only)   | dense                |
-| **Smoothness**        | piecewise convex    | smooth                 | non-smooth            | smooth               |
-| **Interpretability**  | high                | medium                 | low                   | low                  |
+## Feature Comparison
 
-## Relative Costs
+| Feature               | MiCE (MoMx)            | Softmax MoE       | Hard MoE         | Standard MLP |
+|-----------------------|------------------------|-------------------|------------------|--------------|
+| **Routing**           | max(mean(…))           | softmax(weights)  | top-k mask       | none         |
+| **Convexity**         | ✅ (vector-valued)      | ✅ (scalar only)  | ❌                | ❌            |
+| **Atlas inversion**   | optional (`invert`)    | —                 | —                | —            |
+| **Compute cost**      | ~2.6× MLP              | >10× (exp/log)    | ~k× experts      | baseline     |
+| **Params**            | ~2.6× MLP              | high              | high             | baseline     |
+| **Gradient smoothness**| high (piecewise convex)| smooth            | sparse           | smooth       |
+| **Interpretability**  | high                   | medium            | low              | low          |
 
-- **Parameters & FLOPs**  
-  MoMx uses ~2.6× the params and MACs of a 2-layer MLP (4× hidden).  
-- **Vs. LSE Fusion**  
-  No log/exp → 4–10× cheaper per petal.  
-- **Vs. Hard-MoE**  
-  No expert dispatch overhead or load balancing; single fused model.
+---
 
-## Solid Arguments
+## Installation
 
-### Against Softmax  
-- **High compute & memory**: O(P) exp/log per input.  
-- **Numerical instability**: needs shift-and-scale tricks.  
-- **Over-smooth**: blurs expert distinctions.
-
-### Against Hard Routing  
-- **Non-convex**: breaks convex guarantees.  
-- **Sparse gradients**: only top-k experts update.  
-- **Brittle**: large performance swings at boundaries.
-
-### Against MLP  
-- **Non-convex**: susceptible to poor local minima.  
-- **Width & depth explosion**: needs huge hidden dims for expressivity.  
-- **Opaque**: hard to interpret gradient flows.
-
-## Quickstart
-
-```python
+```bash
 pip install torch-mice
+
+import torch
 from torch_mice import VectorHull
 
-model = VectorHull(in_dim=512, petals=8)   # convex, efficient MoE
-y = model(x)                               # forward pass
+# Forward-only mode (default):
+hull = VectorHull(in_dim=512, petals=8, out_dim=512, invert=False)
+y_fwd = hull(x)
+
+# Full atlas mode with exact inversion:
+hull_atlas = VectorHull(in_dim=512, petals=8, out_dim=512, invert=True)
+y_atlas = hull_atlas(x)
 
 ```
-## License
-
+##License
 Licensed under the Gratis Public License © 2025 Joshuah Rainstar
