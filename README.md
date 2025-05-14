@@ -60,6 +60,6 @@ hull_atlas = VectorHull(in_dim=512, petals=8, out_dim=512, invert=True)
 y_atlas = hull_atlas(x)
 
 ```
-##License
+## License
 
 Licensed under the Gratis Public License © 2025 Joshuah Rainstar
