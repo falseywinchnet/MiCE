@@ -5,7 +5,6 @@
 import torch
 import torch.nn as nn
 
-from .convex_gate     import ConvexGate
 from .batched_icnn import BatchedICNN
 from .atlas_projector import AtlasProjector
 
