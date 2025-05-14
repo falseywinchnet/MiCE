@@ -2,6 +2,13 @@
 # Copyright © 2025 Joshuah Rainstar
 # License: see ../LICENSE.txt
 
+import torch
+import torch.nn as nn
+
+from .convex_gate     import ConvexGate
+from .batched_icnn import BatchedICNN
+from .atlas_projector import AtlasProjector
+
 """
     VectorHull: Convex vector‐valued function via overlapping shifted max‐of‐means fusion,
     with optional exact inversion of fixed affine projections.
