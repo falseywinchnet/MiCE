@@ -3,91 +3,86 @@
 # License: see ../LICENSE.txt
 
 """
-VectorHull: Convex vector-valued function via overlapping shifted max-of-means fusion.
-Each input is passed through a BatchedICNN “petal” ensemble, then grouped into
-circular overlapping pairs, averaged, shifted by a learnable bias, and max-combined
-to guarantee convexity without exponentials.
-"""
+    VectorHull: Convex vector‐valued function via overlapping shifted max‐of‐means fusion,
+    with optional exact inversion of fixed affine projections.
 
-import torch
-import torch.nn as nn
+    Pipeline:
+      1. Project x into P fixed, orthonormal petal coordinates: z_p = A_p x
+      2. Evaluate each convex subnetwork (BatchedICNN) on z_p
+      3. (Optional) Reproject each petal’s output back to the global frame: v_p = A_pᵀ f_p(z_p)
+      4. Group the P outputs into P overlapping pairs (i, i+1 mod P)
+      5. Compute the mean over each pair, add a learnable shift bias
+      6. Compute the coordinate‐wise max over all groups → final output y(x)
 
-from .batched_icnn import BatchedICNN
-
-__all__ = ["VectorHull"]
+    This structure guarantees that each chart R_p ∘ f_p ∘ A_p is convex, and the max‐fusion
+    preserves convexity.  The `invert` flag toggles step 3 (the exact inversion) on or off.
+    """
 
 
 class VectorHull(nn.Module):
     """
+    VectorHull with optional exact inversion of fixed projections.
+
     Args:
-        in_dim:   input feature dimensionality D
-        petals:   number of parallel convex “petals” P
-        out_dim:  output dimensionality per petal (defaults to in_dim)
-    
-    Behavior:
-        1. Run x through BatchedICNN → (…, P, out_dim)
-        2. Form G=P groups of size 2 via circular pairs (i, (i+1)%P)
-        3. Compute group means → (…, G, out_dim)
-        4. Add static learnable shift per group
-        5. Max over groups → (…, out_dim)
+        in_dim:  input feature dim D
+        petals:  number of petals P
+        out_dim: output dim per petal (defaults to in_dim)
+        invert:  if True, apply exact inversion A_p^{-1} to petal outputs before fusion
     """
-    def __init__(self, in_dim: int, petals: int, out_dim: int = None):
+    def __init__(self, in_dim: int, petals: int, out_dim: int = None, invert: bool = True):
         super().__init__()
         self.in_dim  = in_dim
         self.out_dim = out_dim if out_dim is not None else in_dim
         self.P       = petals
-        self.G       = petals  # one overlapping pair per petal
-        
-        # Core convex petal ensemble
-        self.petals = BatchedICNN(self.in_dim, self.P, self.out_dim)
-        
-        # Static learnable shift bias, one per group
+        self.G       = petals
+        self.invert  = invert
+
+        # 1) fixed projections (with .inverse available)
+        self.projector = AtlasProjector(in_dim, petals)
+
+        # 2) Batched ICNN expecting pre-projected + flat inputs
+        self.petals_net = BatchedICNN(in_dim, petals, self.out_dim)
+
+        # 3) convex‐hull fusion params
         self.shifts = nn.Parameter(torch.zeros(self.G))
-        
-        # Precompute circular pair indices for gathering
         group_idxs = [[i, (i + 1) % self.P] for i in range(self.P)]
-        self.register_buffer(
-            "group_indices",
-            torch.tensor(group_idxs, dtype=torch.long)
-        )  # shape (G, 2)
+        self.register_buffer("group_indices", torch.tensor(group_idxs, dtype=torch.long))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Optimized forward pass with fast-path for petals==1,
-        and efficient group indexing for petals > 1.
-        """
-        unsqueeze = False
+        # ensure shape (B, S, D)
         if x.dim() == 2:
-            x = x.unsqueeze(1)  # (B, 1, D)
-            unsqueeze = True
+            x = x.unsqueeze(1)
+        B, S, D = x.shape
+        N = B * S
 
-        out_all = self.petals(x)  # (B, S, P, D_out)
-        B, S, P, D = out_all.shape
+        # flatten batch+seq to (N,D)
+        x_flat = x.reshape(N, D)
 
-        # === Fast-path: single petal ===
-        if P == 1:
-            out = out_all.squeeze(2)  # (B, S, D_out)
-            if unsqueeze:
-                return out.squeeze(1)  # (B, D_out)
-            return out
+        # forward‐project into each petal chart → (P, N, D)
+        x_proj = self.projector(x_flat)
 
-        # === Optimized group indexing ===
-        # out_all: (B, S, P, D) → (B*S, P, D)
-        out_2d = out_all.view(-1, P, D)
+        # petal ICNN: returns (N, P, out_dim)
+        f_p = self.petals_net(x_proj, x_flat)
 
-        # Gather indices as (G*2,)
-        flat_indices = self.group_indices.view(-1)  # (2*G,)
-        selected = out_2d.index_select(1, flat_indices)  # (B*S, 2*G, D)
+        # if inversion requested, bring each petal output back to global frame
+        if self.invert:
+            # permute → (P, N, out_dim)
+            f_p = f_p.permute(1, 0, 2)
+            # inverse‐project → (N, P, out_dim)
+            f_p = self.projector.inverse(f_p)
 
-        # Reshape to (B*S, G, 2, D) → mean over dim=2
-        grouped = selected.view(B, S, self.G, 2, D)
-        means = grouped.mean(dim=3)  # (B, S, G, D)
+        # reshape for fusion: (B, S, P, out_dim)
+        f_p = f_p.reshape(B, S, self.P, self.out_dim)
+        out_2d = f_p.reshape(N, self.P, self.out_dim)
 
-        # Add learnable shift and reduce
-        shifted = means + self.shifts.view(1, 1, self.G, 1)
-        out, _ = shifted.max(dim=2)  # (B, S, D)
+        # grouping & convex‐hull max‐fusion (identical in both modes)
+        flat_inds = self.group_indices.view(-1)         # (2*G,)
+        selected  = out_2d.index_select(1, flat_inds)    # (N,2G,out_dim)
+        grouped   = selected.view(N, self.G, 2, self.out_dim)
+        means     = grouped.mean(dim=2)                 # (N,G,out_dim)
+        if not self.invert: #apply an approximating shift - Rainstar
+            means   = means + self.shifts.view(1, self.G, 1)
+        hull_out, _ = means.max(dim=1)                # (N,out_dim)
 
-        if unsqueeze:
-            out = out.squeeze(1)  # (B, D)
-
-        return out
+        # restore (B,S,out_dim)
+        return hull_out.reshape(B, S, self.out_dim)
