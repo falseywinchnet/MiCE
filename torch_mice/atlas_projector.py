@@ -14,15 +14,25 @@ class AtlasProjector(nn.Module):
         self.register_buffer('A', A)                 # Forward projection
         self.register_buffer('A_inv', A.transpose(1, 2))  # Inverse (orthonormal)
 
-    def _build_projections(self, D, P):
-        base = torch.eye(D)
-        Q, _ = torch.linalg.qr(base + 1e-3 * torch.randn(D, D))
-        rotations = []
+    def _build_projections(self,D, P, theta=math.pi / 4):
+        """
+        Generate P smooth, deterministic D×D orthogonal projection matrices along a geodesic in SO(D)
+        using exponential map of a skew-symmetric generator.
+        """
+        G = torch.zeros(D, D)
+        
+        # Create a deterministic skew-symmetric generator in multiple planes
+        for i in range(0, D-1, 2):
+            G[i, i+1] = -theta
+            G[i+1, i] = theta
+
+        projections = []
         for p in range(P):
-            perm = torch.roll(torch.arange(D), shifts=p).tolist()
-            rot = Q[:, perm]
-            rotations.append(rot)
-        return torch.stack(rotations, dim=0)  # (P, D, D)
+            t = p / max(P - 1, 1)  # normalized in [0, 1]
+            A = torch.matrix_exp(t * G)  # lie-algebra interpolation
+            projections.append(A)
+
+        return torch.stack(projections, dim=0)  # (P, D, D)
 
     def forward(self, x):
         # x: (N, D)
