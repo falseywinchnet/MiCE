@@ -58,7 +58,7 @@ This work builds on research done at Carnegie Mellon [Input-Convex Neural Networ
 ## Quickstart
 
 ```python
-pip install torch_mice
+pip install torch-mice
 from torch_mice import VectorHull
 
 model = VectorHull(in_dim=512, petals=8)   # convex, efficient MoE
