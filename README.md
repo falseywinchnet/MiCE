@@ -25,7 +25,7 @@ This guarantees convexity, interpretability, and efficient compute without expon
 ## Why MiCE?
 
 - **Global convexity**  
-  Each chart \(R_p \circ f_p \circ A_p\) is convex; max-fusion preserves convexity in any dimension.
+  Each chart is convex; max-fusion preserves convexity in any dimension.
 
 - **Two operating modes**  
   - **Forward-only** (`invert=False`): fast chart tiling with learnable shifts  
@@ -71,4 +71,5 @@ y_atlas = hull_atlas(x)
 
 ```
 ##License
+
 Licensed under the Gratis Public License © 2025 Joshuah Rainstar
