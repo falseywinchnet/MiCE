@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# Copyright © 2025 Joshuah Rainstar
+# License: see ../LICENSE.txt
+
+
 import math
 import torch
 import torch.nn as nn
