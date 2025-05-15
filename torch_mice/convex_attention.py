@@ -11,7 +11,7 @@ from .positive_linear import PositiveLinearHK
 from .atlas_projector import SingleStiefelProjector
 from .affine_norm import BatchAffineNorm
 
-__all__ = ["LatentExpansionAttention","ConvexContractionAttention"]
+__all__ = ["ConvexExpansionAttention","ConvexContractionAttention"]
 
 class ConvexExpansionAttention(nn.Module):
     def __init__(self, D: int, gamma: float = 5.0):
