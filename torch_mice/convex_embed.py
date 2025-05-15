@@ -11,6 +11,16 @@ import torch.nn.functional as F
 from .atlas_projector import SingleStiefelProjector
 from .affine_norm import BatchAffineNorm
 
+'''
+TODO possibilities
+Angle scaling sweep: fixed seed _angle may still be too large. 
+smaller scales (e.g. π/16, π/32) to find a sweet spot where the network doesn’t have to “undo” too much rotation.
+Two-stage projector: embed → (small Stiefel rotation) → learned linear layer. That splits “rotation healing” from feature adaptation.
+
+
+
+'''
+
 class GeometricConvexEmbedding(nn.Module):
     def __init__(self, vocab_size: int, embed_dim: int = 512, expand_factor: int = 4):
         super().__init__()
