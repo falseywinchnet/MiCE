@@ -1,39 +1,26 @@
-# MiCE (Mixture of Convex Experts)
+# MiCE (Mixture of Convex Examples)
 
 ## What is MiCE?
 
-MiCE is a lightweight PyTorch library for building **convex** mixture-of-experts models via a novel **max-of-means atlas**.  Instead of softmax routing or hard top-k gating, MiCE fuses an ensemble of convex “petal” subnetworks with a fixed, irreducible atlas of affine charts:
+MiCE is a lightweight PyTorch library for building **convex** large language models via a series of novel mechanisms.  Instead of softmax routing or hard top-k gating, MiCE seeks to apply fusing, kernels, convex embedding, atlas lookups, intrinsically convex neural networks and convex norms.
 
-1. **Forward projection** into each petal’s chart  
-2. **Convex evaluation** in chart space (Input-Convex Neural Nets)  
-3. **(Optional) exact inversion** back to the global frame  
-4. **Overlapping mean-of-pairs + max** fusion  
-
-This guarantees convexity, interpretability, and efficient compute without exponentials or discrete dispatch- but only inside the petals, for now.
-Convexity distortions do happen at the edge of petals, and work is ongoing to evaluate this problem.
+Conditioned on the right data, this helps guarantee convexity, interpretability, and efficient compute without exponentials or discrete dispatch.
 
 ## Why MiCE?
 
-- **Global convexity**  
-  Each chart is convex; max-fusion preserves convexity in any dimension.
-
-- **Two operating modes**  
-  - **Forward-only** (`invert=False`): fast chart tiling with learnable shifts  
-  - **Atlas mode**  (`invert=True`): full chart atlas with exact reprojection, no shifts needed
-
 - **Efficiency**  
-  No softmax, no log-sum-exp, no sparse dispatch.  Fusion is just a handful of GEMMs, adds, and a single max per group.  Compute scales ~2.6× a 2-layer MLP.
+  No softmax, no log-sum-exp,no MLP, very little to no concavity anywhere in the model.
 
 - **Interpretability**  
-  Clear regions of dominance — visualize arg-max and margins over petals in any 2-D slice.  
+  Clear regions of dominance — visualize arg-max and margins over latent parameters in any 2-D slice.  
 
 ---
 
 ## Feature Comparison
 
-| Feature               | MiCE (MoMx)            | Softmax MoE       | Hard MoE         | Standard MLP |
+| Feature               | MiCE (MoMx)            | LogsumEXP MoE       | Hard MoE         | Standard MLP |
 |-----------------------|------------------------|-------------------|------------------|--------------|
-| **Routing**           | max(mean(…))           | softmax(weights)  | top-k mask       | none         |
+| **Routing**           | max(mean(…))           | LogsumEXP(weights)  | top-k mask       | none         |
 | **Convexity**         | ✅ (vector-valued)      | ✅ (scalar only)  | ❌                | ❌            |
 | **Atlas inversion**   | optional (`invert`)    | —                 | —                | —            |
 | **Compute cost**      | ~2.6× MLP              | >10× (exp/log)    | ~k× experts      | baseline     |
