@@ -31,7 +31,7 @@ class GeometricConvexEmbedding(nn.Module):
         self.embed_table = nn.Embedding(vocab_size, self.expanded_dim)
 
         # Project down to embed_dim via SO(embed_dim)
-        self.projector = SmoothStiefelProjector(self.in_dim)
+        self.projector = SingleStiefelProjector(self.in_dim)
 
         # Contract via learnable linear map or stability layer
         self.contractor = BatchAffineNorm(self.in_dim)
