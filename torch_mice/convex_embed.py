@@ -11,44 +11,48 @@ import torch.nn.functional as F
 from .atlas_projector import SingleStiefelProjector
 from .affine_norm import BatchAffineNorm
 
-'''
-TODO possibilities
-Angle scaling sweep: fixed seed _angle may still be too large. 
-smaller scales (e.g. π/16, π/32) to find a sweet spot where the network doesn’t have to “undo” too much rotation.
-Two-stage projector: embed → (small Stiefel rotation) → learned linear layer. That splits “rotation healing” from feature adaptation.
+__all__ = ["PositiveEmbeddingHK","GeometricConvexEmbedding"]
 
 
 
-'''
-
-class GeometricConvexEmbedding(nn.Module):
-    def __init__(self, vocab_size: int, embed_dim: int = 512, expand_factor: int = 4):
+class PositiveEmbeddingHK(nn.Module):
+    def __init__(self, vocab_size: int, embed_dim: int):
         super().__init__()
-        self.in_dim = embed_dim
-        self.expanded_dim = embed_dim * expand_factor
+        self.raw = nn.Parameter(torch.empty(vocab_size, embed_dim))
+        with torch.no_grad():
+            mean = math.log(math.sqrt(2.0 / vocab_size))
+            nn.init.normal_(self.raw, mean=mean, std=0.2)
 
-        # Learn token representations in higher-dimensional space
-        self.embed_table = nn.Embedding(vocab_size, self.expanded_dim)
-
-        # Project down to embed_dim via SO(embed_dim)
-        self.projector = SingleStiefelProjector(self.in_dim)
-
-        # Contract via learnable linear map or stability layer
-        self.contractor = BatchAffineNorm(self.in_dim)
-
-        # Linear contraction: optional alternative to FrozenAffine
-        # self.contractor = nn.Linear(self.in_dim, self.in_dim)
-
-        # Expansion matrix: learnable expansion to match projection input
-        self.expander = nn.Linear(self.expanded_dim, self.in_dim)
+    @property
+    def weight(self):
+        return F.softplus(self.raw)  # ensure positivity
 
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         """
-        idx: (B, S) token indices
-        Returns: (B, S, embed_dim)
+        idx: (B, S) — long tensor of token indices
+        return: (B, S, D) — positive embedding vectors
         """
-        raw_embed = self.embed_table(idx)         # (B, S, 2D)
-        expanded = self.expander(raw_embed)       # (B, S, D)
-        projected = self.projector(expanded)      # (B, S, D)
-        contracted = self.contractor(projected)   # (B, S, D)
-        return contracted
+        return self.weight[idx]
+
+class GeometricConvexEmbedding(nn.Module):
+    def __init__(self, vocab_size: int, embed_dim: int, expand_factor: int = 4):
+        super().__init__()
+        self.D = embed_dim
+        self.E = embed_dim * expand_factor
+
+        self.embed = PositiveEmbeddingHK(vocab_size, self.D)         # V × E
+        self.expand = PositiveLinearHK(self.D, self.E, bias=True)  # E → D
+        self.projector = SingleStiefelProjector(self.E)               # SO(E)
+        self.contract = PositiveLinearHK(self.E, self.D, bias=False)  # E → D
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        """
+        idx: (B, S) long
+        return: (B, S, D) — strictly convex, unit-norm embeddings
+        """
+        x = self.embed(idx)                    #(B, S, D), positive
+        x = self.expand(x)                 # (B, S, E), positive
+        x = self.projector(x)                # (B, S, E), rotated
+        x = self.contract(x)                 # (B, S, D), positive
+        x = x / (x.norm(dim=-1, keepdim=True) + 1e-8)  # unit norm
+        return x
