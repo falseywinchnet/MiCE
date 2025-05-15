@@ -44,7 +44,8 @@ class GeometricConvexEmbedding(nn.Module):
         self.expand = PositiveLinearHK(self.D, self.E, bias=True)  # E → D
         self.projector = SingleStiefelProjector(self.E)               # SO(E)
         self.contract = PositiveLinearHK(self.E, self.D, bias=False)  # E → D
-
+        self.norm = FrozenAffine(self.D)
+        
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         """
         idx: (B, S) long
@@ -54,5 +55,6 @@ class GeometricConvexEmbedding(nn.Module):
         x = self.expand(x)                 # (B, S, E), positive
         x = self.projector(x)                # (B, S, E), rotated
         x = self.contract(x)                 # (B, S, D), positive
-        x = x / (x.norm(dim=-1, keepdim=True) + 1e-8)  # unit norm
+        x = self.norm(x)
         return x
+
