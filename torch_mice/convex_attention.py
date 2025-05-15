@@ -85,15 +85,15 @@ class ConvexContractionAttention(nn.Module):
 
         # per-output‐channel small Q/K/V projectors + rotations
         self.q_blocks = nn.ModuleList([
-            nn.Sequential(PositiveLinearHK(1, 3), SingleStiefelProjector(3), FrozenAffine(3))
+            nn.Sequential(PositiveLinearHK(1, 3), SingleStiefelProjector(3), BatchAffineNorm(3))
             for _ in range(self.d)
         ])
         self.k_blocks = nn.ModuleList([
-            nn.Sequential(PositiveLinearHK(1, 3), SingleStiefelProjector(3), FrozenAffine(3))
+            nn.Sequential(PositiveLinearHK(1, 3), SingleStiefelProjector(3), BatchAffineNorm(3))
             for _ in range(self.d)
         ])
         self.v_blocks = nn.ModuleList([
-            nn.Sequential(PositiveLinearHK(1, 3), SingleStiefelProjector(3), FrozenAffine(3))
+            nn.Sequential(PositiveLinearHK(1, 3), SingleStiefelProjector(3), BatchAffineNorm(3))
             for _ in range(self.d)
         ])
 
