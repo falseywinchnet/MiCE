@@ -45,7 +45,7 @@ class GeometricConvexEmbedding(nn.Module):
         self.projector = SingleStiefelProjector(self.D)               # SO(E)
         self.expand = PositiveLinearHK(self.D, self.E, bias=False)  # E → D
         self.reduce2 = PositiveLinearHK(self.E, self.D, bias=False)  # E → D
-        self.norm = FrozenAffine(self.D)
+        self.norm = BatchAffineNorm(self.D)
         
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         """
