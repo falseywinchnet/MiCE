@@ -75,7 +75,7 @@ class ConvexContractionAttention(nn.Module):
       → compute kernel scores over those 3 “mini‐heads”
       → collapse to one scalar per token
     - Stack all d scalars → (B, T, d)
-    - Final FrozenAffine for stability
+    - Final BatchAffineNorm for stability
     """
     def __init__(self, D_in: int, gamma: float = 5.0):
         super().__init__()
