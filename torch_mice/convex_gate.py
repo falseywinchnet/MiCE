@@ -10,6 +10,10 @@ Ensures a convex, bounded gating signal.
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+from .positive_linear import PositiveLinearHK
+
 
 __all__ = ["ConvexGate"]
 
@@ -20,7 +24,7 @@ class ConvexGate(nn.Module):
     """
     def __init__(self, in_dim: int, out_dim: int = 1):
         super().__init__()
-        self.lin = nn.Linear(in_dim, out_dim, bias=True)
+        self.lin = PositiveLinearHK(in_dim, out_dim, bias=True)
         self.softplus = nn.Softplus()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
