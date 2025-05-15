@@ -40,10 +40,11 @@ class GeometricConvexEmbedding(nn.Module):
         self.D = embed_dim
         self.E = embed_dim * expand_factor
 
-        self.embed = PositiveEmbeddingHK(vocab_size, self.D)         # V × E
-        self.expand = PositiveLinearHK(self.D, self.E, bias=True)  # E → D
-        self.projector = SingleStiefelProjector(self.E)               # SO(E)
-        self.contract = PositiveLinearHK(self.E, self.D, bias=False)  # E → D
+        self.embed = PositiveEmbeddingHK(vocab_size, self.E)         # V × E
+        self.reduce = PositiveLinearHK(self.E, self.D, bias=False)  # E → D
+        self.projector = SingleStiefelProjector(self.D)               # SO(E)
+        self.expand = PositiveLinearHK(self.D, self.E, bias=False)  # E → D
+        self.reduce2 = PositiveLinearHK(self.E, self.D, bias=False)  # E → D
         self.norm = FrozenAffine(self.D)
         
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
@@ -52,9 +53,11 @@ class GeometricConvexEmbedding(nn.Module):
         return: (B, S, D) — strictly convex, unit-norm embeddings
         """
         x = self.embed(idx)                    #(B, S, D), positive
-        x = self.expand(x)                 # (B, S, E), positive
+        x = self.reduce(x)                 # (B, S, E), positive
         x = self.projector(x)                # (B, S, E), rotated
-        x = self.contract(x)                 # (B, S, D), positive
+        x = self.expand(x)                 # (B, S, D), positive
+        x = self.reduce2(x)
         x = self.norm(x)
         return x
+
 
