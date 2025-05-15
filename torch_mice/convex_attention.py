@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
+# Copyright © 2025 Joshuah Rainstar
+# License: see ../LICENSE.txt
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-SingleStiefelProjector
 
 from .positive_linear import PositiveLinearHK
 from .atlas_projector import SingleStiefelProjector
