@@ -8,6 +8,8 @@ import torch.nn as nn
 from .batched_icnn import BatchedICNN
 from .atlas_projector import AtlasProjector
 
+__all__ = ["VectorHull"]
+
 """
     VectorHull: Convex vector‐valued function via overlapping shifted max‐of‐means fusion,
     with optional exact inversion of fixed affine projections.
@@ -93,3 +95,6 @@ class VectorHull(nn.Module):
 
         # restore (B,S,out_dim)
         return hull_out.reshape(B, S, self.out_dim)
+
+
+
