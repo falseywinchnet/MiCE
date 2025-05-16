@@ -50,42 +50,38 @@ class ConvexSimilarityHash(nn.Module):
         self.window_size = window_size
         self.eps = eps
 
-        # Step 1 taper: linear ramp from 0-1
-        taper = torch.linspace(0.0, 1.0, self.T)
+        # Step 1 taper: linear ramp from 1→0
+        taper = torch.linspace(1.0, 0.0, self.T)
         self.register_buffer('taper', taper)  # (T,)
 
         # Step 4 compressor
         self.compressor = ConvexCompressor(self.T)
         self.phase = ConvexCompressor(self.T)
 
-    def _compute_tdiff_phase(self, x0, window_size=15, freq=0.1):
+    def _compute_tdiff_phase(self, x0, window_size=15):
         """
-        Computes TDIFF using single-channel causal phase accumulation
-        over a window of 15 past tokens, evaluated only at odd indices.
-        Input: x ∈ (B, T, E)
+        Computes TDIFF using causal window over x0 ∈ (B, T),
+        treating each position as a point in a 1D field and accumulating
+        phase-aligned, value-modulated contributions from prior steps.
+    
         Output: TDIFF ∈ (B, T//2)
         """
         B, T = x0.shape
-        
-        # Pad on the left for window access
-        x0_padded = F.pad(x0, (window_size, 0))  # (B, T + window_size)
+        tdiff = torch.zeros(B, T, device=x0.device)
     
-        # Time indices we will compute TDIFF at: i = 1, 3, 5, ...
-        t_indices = torch.arange(0, T, device=x0.device)  # (T//2,)
-        tdiff_list = []
+        for i in range(T):
+            j_start = max(i - window_size, 0)
+            window = x0[:, j_start:i]  # shape (B, w), strictly before i
     
-        # Sinusoidal frequency weights
-        offsets = torch.arange(window_size, 0, -1, device=x0.device).float()  # [15, 14, ..., 1]
-        sin_weights = torch.sin(offsets * freq).view(1, 1, -1)  # (1, 1, 15)
+            # Weight linearly by recency (optional — can try learned weights later)
+            if window.shape[1] > 0:
+                offsets = torch.arange(window.shape[1], 0, -1, device=x0.device).float()  # [w, ..., 1]
+                weights = offsets / offsets.sum()  # normalize
+                tdiff[:, i] = (window * weights.view(1, -1)).sum(dim=1)
+            else:
+                tdiff[:, i] = 0.0
     
-        for i in t_indices:
-            # Slice window for each index: use j ∈ [i - 15, i - 1]
-            window_slice = x0_padded[:, i : i + window_size]  # (B, 15)
-            weighted_sum = (window_slice * sin_weights.squeeze(0)).sum(dim=1)  # (B,)
-            tdiff_list.append(weighted_sum)
-    
-        TDIFF = torch.stack(tdiff_list, dim=1)  # (B, T//2)
-        return TDIFF
+        return tdiff
 
     def forward(self, x):
         """
@@ -107,9 +103,8 @@ class ConvexSimilarityHash(nn.Module):
         v     = (rem / r.unsqueeze(-1)).clamp(-1+self.eps, 1-self.eps)
         alpha = torch.asin(v).sum(dim=-1)   # (B, T)
         PHASES = start + alpha              # (B, T)
-        cx = x_t.mean(dim=-1)# (B, T)
     
-        TDIFF = self.phase(self._compute_tdiff_phase(cx))   # (B, T//2)
+        TDIFF = self.phase(self._compute_tdiff_phase(c0))   # (B, T//2)
 
         # 4) compress PHASES
         THASH = self.compressor(PHASES)       # (B, T//2)
