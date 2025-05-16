@@ -1,7 +1,19 @@
 # -*- coding: utf-8 -*-
 # Copyright © 2025 Joshuah Rainstar
-# License: see ../LICENSE.txt
+# License: see LICENSE.txt
 
+
+'''
+an example model.
+does not yet converge beyond loss of ~3.25
+important note: set loss as high as you want.
+Will it learn? probably not. 
+but will other models explode?
+why wont this?
+think about it.
+--josh
+
+'''
 
 import torch
 import torch.nn as nn
