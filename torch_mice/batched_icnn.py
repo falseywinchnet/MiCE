@@ -18,8 +18,39 @@ import torch.nn.functional as F
 from .positive_linear import PositiveLinear3DHK
 from .convex_gate     import ConvexGate
 
-__all__ = ["BatchedICNN"]
+__all__ = ["BatchedICNN","BatchedSingleICNN"]
 
+class BatchedSingleICNN(nn.Module):
+    """
+    A minimal wrapper for a BatchedICNN with petals=1, matching VectorHull semantics.
+    This flattens (B, S, D) → (N=D*B, D), adds a petal dimension, runs the ICNN,
+    and restores the (B, S, D_out) output.
+    """
+    def __init__(self, in_dim: int, out_dim: int):
+        super().__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.icnn = BatchedICNN(in_dim, petals=1, out_dim=out_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: (B, S, D_in)
+        Returns:
+            output: (B, S, D_out)
+        """
+        B, S, D = x.shape
+        assert D == self.in_dim, f"Expected last dim {self.in_dim}, got {D}"
+        N = B * S
+
+        x_flat = x.reshape(N, D)                 # (N, D)
+        x_proj = x_flat.unsqueeze(0)             # (1, N, D) — single petal
+
+        # BatchedICNN forward takes (P, N, D), (N, D) → (N, P, D_out)
+        out = self.icnn(x_proj, x_flat)          # (N, 1, D_out)
+        out = out.squeeze(1)                     # (N, D_out)
+
+        return out.reshape(B, S, self.out_dim)   # (B, S, D_out)
 
 class BatchedICNN(nn.Module):
     """
