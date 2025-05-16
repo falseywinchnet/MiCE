@@ -1,4 +1,4 @@
-__version__ = "0.4.8"
+__version__ = "0.4.9"
 
 from .positive_linear import PositiveLinearHK, PositiveLinear3DHK
 from .batched_icnn    import BatchedICNN
