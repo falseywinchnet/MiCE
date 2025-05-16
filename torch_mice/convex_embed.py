@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 from .atlas_projector import SingleStiefelProjector
 from .affine_norm import BatchAffineNorm
+from .positive_linear import PositiveLinearHK
 
 __all__ = ["PositiveEmbeddingHK","GeometricConvexEmbedding"]
 
