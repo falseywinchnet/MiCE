@@ -1,132 +1,184 @@
+# -*- coding: utf-8 -*-
+# Copyright © 2025 Joshuah Rainstar
+# License: see ../LICENSE.txt
+
+
 import torch
 import torch.nn as nn
-
+import torch.nn.functional as F
+import math
 from torch_mice import (
-    ConvexExpansionAttention,
-    ConvexContractionAttention,
-    ConvexGate,            # if you still want a gate in the future
+    BatchedICNN,
+    BatchedSingleICNN,
+    PositiveLinearHK,
     BatchAffineNorm,
-    VectorHull,
-    GeometricConvexEmbedding
+    ConvexSimilarityHash,
+    
 )
-class ConvexBlock(nn.Module):
-    def __init__(self, dim: int, expansion_factor: int = 3):
+
+
+import scipy.fftpack
+from matplotlib import pyplot as plt
+def dct_basis(L, k):
+    return torch.tensor(scipy.fftpack.dct(np.eye(L), norm='ortho')[:k], dtype=torch.float32)
+    
+
+# === VAE-based Query Generator ===
+
+class VectorFieldHyperNetwork2D(nn.Module):
+    def __init__(self, in_shape: tuple[int, int], out_shape: tuple[int, int], hidden_dim=32):
         """
-        A single convex block:
-          1) Expansion attention:   dim -> dim * expansion_factor
-          2) Norm
-          3) VectorHull MLP:        dim * expansion_factor -> dim * expansion_factor
-          4) Norm
-          5) Contraction attention: dim * expansion_factor -> dim
-          6) Norm
-          7) VectorHull MLP:        dim -> dim
-          8) Norm
-        Residual: adds input x (shape B,L,dim) to final output (B,L,dim).
+        Args:
+            in_shape  : (H_in, W_in) — e.g. (T//2, 2)
+            out_shape : (H_out, W_out) — e.g. (T, D)
         """
         super().__init__()
-        self.attn_exp = ConvexExpansionAttention(dim, dim * expansion_factor)
-        self.norm1    = BatchAffineNorm(dim * expansion_factor)
+        self.in_shape = in_shape
+        self.out_shape = out_shape
 
-        self.vh1      = VectorHull(dim * expansion_factor, petals=2,out_dim= dim * expansion_factor,invert=False)
-        self.norm2    = BatchAffineNorm(dim * expansion_factor)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, hidden_dim, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, padding=1),
+            nn.ReLU()
+        )
 
-        self.attn_ctr = ConvexContractionAttention(dim * expansion_factor, dim)
-        self.norm3    = BatchAffineNorm(dim)
+        self.resizer = nn.AdaptiveAvgPool2d(out_shape)
 
-        self.vh2      = VectorHull(dim, petals=2,out_dim= dim,invert=False)
-        self.norm4    = BatchAffineNorm(dim)
+        self.decoder = nn.Sequential(
+            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=1),
+            nn.ReLU(),
+            nn.Conv2d(hidden_dim, 1, kernel_size=1)
+        )
+
+    def forward(self, x):
+        """
+        x: (B, H_in, W_in)
+        returns: (B, H_out, W_out)
+        """
+        B, H_in, W_in = x.shape
+        x = x.unsqueeze(1)                          # (B, 1, H_in, W_in)
+        x = self.encoder(x)                         # (B, C, H_in, W_in)
+        x = self.resizer(x)                         # (B, C, H_out, W_out)
+        x = self.decoder(x)                         # (B, 1, H_out, W_out)
+        return x.squeeze(1)                         # (B, H_out, W_out)
+
+
+def normalized_alpha_softplus_attention(Q, K, V, alpha=1.5, tau=0.2, eps=1e-6, log=True):
+    # 1. Scaled dot product
+    logits = torch.einsum("bqd,bkd->bqk", Q, K)  # both are (B, L, D)
+    logits = logits / math.sqrt(Q.size(-1))       # scale by √D
+
+    scores = F.softplus((alpha - 1) * logits - tau) ** (1 / (alpha - 1))
+    # 4. Normalize manually (row-wise softmax)
+    weights = scores / (scores.sum(dim=-1, keepdim=True) + eps)
+    attn_score = weights.sum(dim=2)  # (B, K)
+
+    # Normalize each sample separately (min-max per row)
+    min_vals = attn_score.min(dim=-1, keepdim=True).values
+    max_vals = attn_score.max(dim=-1, keepdim=True).values
+    attn_score = (attn_score - min_vals) / (max_vals - min_vals + 1e-6)  # (B, K)
+    
+
+    # 5. Apply attention
+    return torch.matmul(weights, V),attn_score
+    
+class PerceptualAttentionBlock(nn.Module):
+    def __init__(self, model_dim, seq_len):
+        super().__init__()
+        self.hash = ConvexSimilarityHash(model_dim, seq_len)
+        self.query_gen = VectorFieldHyperNetwork2D(in_shape=(seq_len//2, 2), out_shape=(seq_len, model_dim))
+        self.key_gen   = VectorFieldHyperNetwork2D(in_shape=(seq_len//2, 2), out_shape=(seq_len, model_dim))
+        self.value_gen   = VectorFieldHyperNetwork2D(in_shape=(seq_len//2, 2), out_shape=(seq_len, model_dim))
+
+        self.q_proj = nn.Linear(model_dim, model_dim)
+        self.k_proj = nn.Linear(model_dim, model_dim)
+        self.v_proj = nn.Linear(model_dim, model_dim)
+
+        
+    def forward(self, x):
+        """
+        x: (B, L, D) — used as Q input, K input, and V source
+        Returns:
+            attention output: (B, L, D)
+            kl divergence from VAE
+        """
+        h = self.hash(x)                # (B, T//2,2)
+        Q = self.query_gen(h)    # (B, L, D)
+        K = self.key_gen(h)            # (B, L, D)
+        V = self.value_gen(h)
+        Q = self.q_proj(Q)
+        K = self.k_proj(K)
+        V = self.v_proj(V)
+        Q = F.normalize(Q, dim=-1)
+        K = F.normalize(K, dim=-1)
+        V = F.normalize(V, dim=-1)
+       
+        attn_out,attn_score = normalized_alpha_softplus_attention(Q, K, V)
+        return attn_out, 0 ,attn_score
+
+
+        
+class ConvexBlock(nn.Module):
+    def __init__(self, model_dim: int, seq_len: int):
+        super().__init__()
+        self.attn  = PerceptualAttentionBlock(model_dim, seq_len)
+        self.norm1 = BatchAffineNorm(model_dim)
+        self.icnn1 = BatchedSingleICNN(in_dim=model_dim, out_dim=model_dim)
+        self.norm2 = BatchAffineNorm(model_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, L, dim)
-        residual = x  # will be added back at the end
+        att,kl, attn_score= self.attn(self.norm1(x))
+        x = x + att       # → (B, L, dim)
 
-        # 1) Expansion attention
-        #    in:  (B, L, dim)
-        #    out: (B, L, dim * 3)
-        x = self.attn_exp(x)
-        x = self.norm1(x)
+        # ICNN #1 + norm
+        x = x + self.icnn1(self.norm2(x))          # → (B, L, dim)
 
-        # 2) VectorHull MLP #1
-        #    in/out: (B, L, dim * 3)
-        x = self.vh1(x)
-        x = self.norm2(x)
-
-        # 3) Contraction attention
-        #    in:  (B, L, dim * 3)
-        #    out: (B, L, dim)
-        x = self.attn_ctr(x)
-        x = self.norm3(x)
-
-        # 4) VectorHull MLP #2
-        #    in/out: (B, L, dim)
-        x = self.vh2(x)
-        x = self.norm4(x)
-
-        # Residual connection
-        # both x and residual: (B, L, dim)
-        return x + residual
+        # residual add
+        return x,kl , attn_score                      # → (B, L, dim)
 
 
 class ConvexLanguageModel(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        embed_dim: int = 3,
-        num_blocks: int = 2,
-        max_length: int = 512,
+        model_dim: int = 128,
+        seq_len: int = 128,
+        num_blocks: int = 6,
     ):
-        """
-        Convex LLM:
-          – Three positive embeddings (q, k, v), each (vocab_size → embed_dim)
-          – Learned causal positional embedding (max_length → embed_dim)
-          – Concatenate to get initial hidden dim = 3 * embed_dim
-          – Stack `num_blocks` of ConvexBlock(dim=3*embed_dim)
-          – Final VectorHull decoder projecting (3*embed_dim → vocab_size)
-        """
         super().__init__()
-        E = embed_dim
-        self.embed_q   = GeometricConvexEmbedding(vocab_size, E)
-        self.embed_k   = GeometricConvexEmbedding(vocab_size, E)
-        self.embed_v   = GeometricConvexEmbedding(vocab_size, E)
-        self.pos_embed = nn.Embedding(max_length, E)
-
-        block_dim = 3 * E
+        self.embedding = GeometricConvexEmbedding(vocab_size, model_dim)
+        self.wpe = nn.Embedding(seq_len, model_dim)
+        self.num_blocks = num_blocks
         self.blocks = nn.ModuleList([
-            ConvexBlock(dim=block_dim, expansion_factor=3)
+            ConvexBlock(model_dim, seq_len)
             for _ in range(num_blocks)
         ])
 
-        # Final decoder: (B, L, 3E) → (B, L, V)
-        self.decoder = VectorHull(block_dim, petals=2,out_dim= vocab_size,invert=False)
+        self.decoder = BatchedSingleICNN(in_dim=model_dim, out_dim=vocab_size)
+
+        
 
     def forward(self, input_ids: torch.LongTensor) -> torch.Tensor:
         """
         input_ids: (B, L)
-        returns logits: (B, L, vocab_size)
+        returns   : logits (B, L, vocab_size)
         """
-        B, L = input_ids.size()
-        # 1) Token embeddings (B, L, E) each
-        q = self.embed_q(input_ids)
-        k = self.embed_k(input_ids)
-        v = self.embed_v(input_ids)
-
-        # 2) Causal positional ids & embedding
-        #    pos_ids: (1, L) → broadcast to (B, L)
-        pos_ids = torch.arange(L, device=input_ids.device).unsqueeze(0).expand(B, L)
-        pos    = self.pos_embed(pos_ids)  # (B, L, E)
-
-        # 3) Inject pos embedding into each channel
-        q = q + pos  # (B, L, E)
-        k = k + pos
-        v = v + pos
-
-        # 4) Concatenate channels → (B, L, 3E)
-        x = torch.cat([q, k, v], dim=-1)
-
-        # 5) Pass through each ConvexBlock (dims preserved = 3E)
+        # -- Embed
+    
+        x = self.embedding(input_ids)            # (B, L, E)
+        B,t,_ = x.shape
+ 
+        # -- Convex blocks
+        kl = 0.0
+        attn_scores = []
         for block in self.blocks:
-            x = block(x)  # (B, L, 3E)
+            x, klt ,attn_score = block(x)                         # (B, L, E)
+            kl += klt
+            attn_scores.append(attn_score)
 
-        # 6) Final decode to vocab logits
-        logits = self.decoder(x)  # (B, L, V)
-        return logits
+        # -- Decode
+        attn_vis = torch.stack(attn_scores).mean(dim=0)
+        logits = self.decoder(x)                 # (B, L, V)
+        return logits,kl/self.num_blocks,attn_vis
