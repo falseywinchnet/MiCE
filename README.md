@@ -1,8 +1,10 @@
-<div style="background-color:#e0f3ff;border-left:6px solid #007acc;padding:16px;border-radius:8px;display:flex;align-items:flex-start;gap:12px;">
-  <div style="font-size:28px;line-height:1;">⚠️</div>
-  <div>
-    <div style="font-size:20px;font-weight:bold;color:#005a9c;">Heads Up!</div>
-    <div style="font-size:14px;color:#333;">This project is under active development. Features may change rapidly and documentation may lag behind.</div>
+<div style="background-color:#e0f3ff;border:2px solid #3399cc;border-radius:10px;padding:16px;margin:20px 0;font-family:sans-serif;">
+  <div style="display:flex;align-items:flex-start;">
+    <div style="font-size:36px;margin-right:12px;">⚠️</div>
+    <div>
+      <strong style="font-size:18px;">Heads up!</strong>
+      <p style="margin:4px 0 0;">This section contains important information you shouldn't miss. Please read it carefully before proceeding.</p>
+    </div>
   </div>
 </div>
 
