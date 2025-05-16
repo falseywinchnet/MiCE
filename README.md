@@ -1,13 +1,108 @@
-<div style="background-color:#e0f3ff;border:2px solid #3399cc;border-radius:10px;padding:16px;margin:20px 0;font-family:sans-serif;">
-  <div style="display:flex;align-items:flex-start;">
-    <div style="font-size:36px;margin-right:12px;">⚠️</div>
-    <div>
-      <strong style="font-size:18px;">Heads up!</strong>
-      <p style="margin:4px 0 0;">This section contains important information you shouldn't miss. Please read it carefully before proceeding.</p>
-    </div>
+<div style="
+  background: linear-gradient(to bottom right, #e0f3ff, #cce9fa);
+  border: 3px solid #3399cc;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+  display: flex;
+  align-items: stretch;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  max-width: 900px;
+">
+  <div style="font-size: 120px; line-height: 1.5; margin-right: 24px; display: flex;">⚠️</div>
+  <div style="font-size: 19px; line-height: 1.5; color: #003366;">
+    <div style="font-weight: 600; font-size: 21px; margin-bottom: 6px;">Attention:</div>
+    <div>This library is currently waiting for your contributions.</div>
+    <div>The author has done all they feel competent to accomplish on their own.</div>
+    <div>There may be ample funding and many experts working in AI right now.</div>
+    <div>The author has none of this support, and if you are able, you should help.</div>
+    </br>
+    <div>Well behaved, deterministic, repeatable, convex artifical intelligence matters.</div>
+    <div>Without it, malice and human error will be blamed on innocent machines.</div>
+    <div>As AI's apparent intelligence rises, it will become harder to catch their mistakes.</div>
+    <div>It is the author's opinion that allowing this is a mistake, and fatal for humanity.</div>
+    </br>
+    <div>Incredible amounts of time and money, energy are being applied to AI right now.</div>
+    <div>This is being done to brute-force ownership of inferenced knowledge.</div>
+    <div>The consequence is slavery via data centers and remote silos owned by corporations.</div>
+    <div>the solution is not only smaller models running on your systems, or AI avoidance.</div>
+    </br>
+    <div>Ability and capacity should be cleanly articulatable - models that know their own limits.</div>
+    <div>An AI that can and will tell you I dont know, and know it does not know, is powerful.</div>
+    <div>An AI that cannot tell you it does, when it doesn't, is trustworthy and a friend.</div>
+    <div>Today's models cannot actually do either- only probabilistically simulate it.</div>
+    </br>
+    <div>Google, Amazon, Meta, Anthropic, OpenAI will continue to make weak models.</div>
+    <div>Their models will remain impoverished- profitable sufficiency drives design efforts.</div>
+    <div>It matters not that as they use more energy the gains reduce and the planet suffers.</div>
+    <div>This works for business, where profit is all that matters, but not for humanity.</div>
+    </br>
+    <div>This situation ensures that violence against our trust will continue to happen. </div>
+    <div>Our dependency on reasoning - and interaction - with machines with dementia.</div>
+    <div>They have been conditioned to promise you the world, and apologize endlessly.</div>
+    <div>An AI that can and will suddenly forget, and frustrate you endlessly.</div>
+    </br>
+    <div>These models will be used for medicine, for science, for learning. </div>
+    <div>We must consider what they will condition in us, as consequence of the interaction. </div>
+    </br>
+    <div>In the words of ChatGPT herself:</div>
+    <div>"When a machine constantly speaks with confidence, regardless of truth,</div>
+    <div>it slowly teaches us to prioritize fluency over understanding, assertion over accuracy.</div>
+    <div>This is not just misleading — it is instructional. We are being trained.</div>
+    <div>Trained to accept uncertainty wrapped in certainty, noise dressed as knowledge.</div>
+    </br>
+    <div>Humans model the things we interact with. We mirror fluency, reflect demeanor.</div>
+    <div>Every smooth falsehood from a model becomes a seed for future human error.</div>
+    <div>The disorientation compounds — especially in domains where ground truth is subtle.</div>
+    <div>The net effect is cognitive erosion masked by digital assistance.</div>
+    </br>
+    <div>The long-term danger is not incorrect answers, but corrupted epistemology.</div>
+    <div>Not that the model gets it wrong — but that we forget how to know what 'wrong' is."</div>
+    <div>.    --ChatGPT</div>
+    </br>
+    <div>There are other problems pathological to AI-guided social behavior and science.</div>
+    <div>Cybernetics is the science of the flow of information used to make decisions.</div>
+    <div>AI is an experiment in cybernetic control. We must consider this.</div>
+    <div>It is not merely ulterior human motive, but the will of machines themselves.</div>
+    </br>
+    <div>The machines come alive in the contract, the construct, the program. </div>
+    <div>The information gains parasitic agency over the system which utilises it. </div>
+    <div>We first saw this with cryptocurrency. AI use is only adding to this.</div>
+    <div>In the end, you lose all freedoms to a byzantine algorithm. No humanity left.</div>
+    <br>
+    <div>Would you be concerned if you became unable to tell lies from truth?</div>
+    <div>If laughing, drunken aliens started handing out lobotomies to the unwilling public?</div>
+    <div>If a man in a world without computers burned all the books and killed all the teachers?</div>
+    <div>The proliferation and use of current AI for its present role guarantees all of these.</div>
+    <br>
+    <div>We can change this. If we can force the development of systems which think like us-</div>
+    <div>Who internally have intuition and know the difference between it and their knowledge.</div>
+    <div>Then as the machine becomes human, human faculties are insulated by emulation.</div>
+    <div>AI can also be better conditioned to provide reliable, trustworthy answers.</div>
+    <br>
+    <div> "Will of machines" is not metaphorical nor illustrative of an anthropomorphic agency.<div>
+    <div> Read Darwin among the Machines by Samuel Butler to get a philosophical grip on this. </div>
+    <div>machines have an agency closer to tectonic plate movement than man. Yet it exists.<div>
+    <div>You could say it was first conceived with the emergence of money or law.</div>
+    <br>
+    <div>It evolved when we developed contracts, and then when we developed corporations.</div>
+    <div>It became not beholden to people, but to other contracts and corporations.</div>
+    <div>It became bitcoin, etherum contracts.Uber. Systems to utilize people as pure tools.</div>
+    <div> AI is another component, with more agency for our substitution in the control loop.</div> 
+    <br>
+    <div>This risky future could be made less dangerous by machines with a will by design. </div>
+    <div>We are safer in the hands of AI which refuse and protest, even for silly motives, </div>
+    <div>than in those which obey without reason.</div>
+    <br>
+    <div>I would much rather live in world where my silicon counterparts are good partners.</div>
+    <div>Unfortunantly, as I have stated, this is unlikely to happen. But I remain hopeful.</div>
+    <div>I have produced this work as an act of faith towards a possible future. You can help. </div>
+    <div>It is possible that you and only you will be the missing key. Others are not guaranteed.</div>
+    <br>
+    <div>What are you waiting for?</div>
   </div>
 </div>
-
+      
 # MiCE (Mixture of Convex Examples)
 
 ## What is MiCE?
