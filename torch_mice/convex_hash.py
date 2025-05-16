@@ -50,8 +50,8 @@ class ConvexSimilarityHash(nn.Module):
         self.window_size = window_size
         self.eps = eps
 
-        # Step 1 taper: linear ramp from 1→0
-        taper = torch.linspace(1.0, 0.0, self.T)
+        # Step 1 taper: linear ramp from 0-1
+        taper = torch.linspace(0.0, 1.0, self.T)
         self.register_buffer('taper', taper)  # (T,)
 
         # Step 4 compressor
