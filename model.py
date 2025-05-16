@@ -1,17 +1,14 @@
-
-
 import torch
 import torch.nn as nn
 
 from torch_mice import (
-    PositiveEmbeddingHK,
     ConvexExpansionAttention,
     ConvexContractionAttention,
     ConvexGate,            # if you still want a gate in the future
     BatchAffineNorm,
     VectorHull,
+    GeometricConvexEmbedding
 )
-
 class ConvexBlock(nn.Module):
     def __init__(self, dim: int, expansion_factor: int = 3):
         """
@@ -30,13 +27,13 @@ class ConvexBlock(nn.Module):
         self.attn_exp = ConvexExpansionAttention(dim, dim * expansion_factor)
         self.norm1    = BatchAffineNorm(dim * expansion_factor)
 
-        self.vh1      = VectorHull(dim * expansion_factor, petals=4,out_dim= dim * expansion_factor)
+        self.vh1      = VectorHull(dim * expansion_factor, petals=2,out_dim= dim * expansion_factor,invert=False)
         self.norm2    = BatchAffineNorm(dim * expansion_factor)
 
         self.attn_ctr = ConvexContractionAttention(dim * expansion_factor, dim)
         self.norm3    = BatchAffineNorm(dim)
 
-        self.vh2      = VectorHull(dim, petals=4,out_dim= dim)
+        self.vh2      = VectorHull(dim, petals=2,out_dim= dim,invert=False)
         self.norm4    = BatchAffineNorm(dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -74,8 +71,8 @@ class ConvexLanguageModel(nn.Module):
     def __init__(
         self,
         vocab_size: int,
-        embed_dim: int = 9,
-        num_blocks: int = 4,
+        embed_dim: int = 3,
+        num_blocks: int = 2,
         max_length: int = 512,
     ):
         """
@@ -88,9 +85,9 @@ class ConvexLanguageModel(nn.Module):
         """
         super().__init__()
         E = embed_dim
-        self.embed_q   = PositiveEmbeddingHK(vocab_size, E)
-        self.embed_k   = PositiveEmbeddingHK(vocab_size, E)
-        self.embed_v   = PositiveEmbeddingHK(vocab_size, E)
+        self.embed_q   = GeometricConvexEmbedding(vocab_size, E)
+        self.embed_k   = GeometricConvexEmbedding(vocab_size, E)
+        self.embed_v   = GeometricConvexEmbedding(vocab_size, E)
         self.pos_embed = nn.Embedding(max_length, E)
 
         block_dim = 3 * E
@@ -100,7 +97,7 @@ class ConvexLanguageModel(nn.Module):
         ])
 
         # Final decoder: (B, L, 3E) → (B, L, V)
-        self.decoder = VectorHull(block_dim, petals=4,out_dim= vocab_size,invert=False)
+        self.decoder = VectorHull(block_dim, petals=2,out_dim= vocab_size,invert=False)
 
     def forward(self, input_ids: torch.LongTensor) -> torch.Tensor:
         """
