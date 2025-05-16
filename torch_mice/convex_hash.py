@@ -71,11 +71,11 @@ class ConvexSimilarityHash(nn.Module):
         x0_padded = F.pad(x0, (window_size, 0))  # (B, T + window_size)
     
         # Time indices we will compute TDIFF at: i = 1, 3, 5, ...
-        t_indices = torch.arange(0, T, device=x.device)  # (T//2,)
+        t_indices = torch.arange(0, T, device=x0.device)  # (T//2,)
         tdiff_list = []
     
         # Sinusoidal frequency weights
-        offsets = torch.arange(window_size, 0, -1, device=x.device).float()  # [15, 14, ..., 1]
+        offsets = torch.arange(window_size, 0, -1, device=x0.device).float()  # [15, 14, ..., 1]
         sin_weights = torch.sin(offsets * freq).view(1, 1, -1)  # (1, 1, 15)
     
         for i in t_indices:
