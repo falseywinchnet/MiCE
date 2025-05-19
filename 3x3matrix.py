@@ -254,40 +254,60 @@ products
 Matrix multiplication at n×n can be expressed as an outer product of n-dimensional bilinear projection bases — where the projections are symmetry-derived, orthogonal components of rows and columns.
 
 # Structured projection basis (4D) for n = 4 rows and columns
-def project_4basis(v0, v1, v2, v3):
-    """Return 4 projection components for a 4-element vector."""
-    # Symmetric mean
-    s = (v0 + v1 + v2 + v3) / 4
-    # Antisymmetric outer
-    a1 = (v0 - v3) / 2
-    # Antisymmetric inner
-    a2 = (v1 - v2) / 2
-    # Residual orthogonal axis
-    r = (-3*v0 + v1 + v2 + v3) / 4
-    return (s, a1, a2, r)
+from numba import njit, float64
+import numpy as np
 
-# Define symbolic A and B variables
-n = 4
-a_syms = sp.symbols(f'a0:{n*n}')
-b_syms = sp.symbols(f'b0:{n*n}')
-A = sp.Matrix(n, n, a_syms)
-B = sp.Matrix(n, n, b_syms)
+# Convert symbolic basis to concrete floats
+v0 = np.array([0.5, 0.5, 0.5, 0.5], dtype=np.float64)
+v1 = np.array([np.sqrt(2)/2, 0.0, 0.0, -np.sqrt(2)/2], dtype=np.float64)
+v2 = np.array([0.0, np.sqrt(2)/2, -np.sqrt(2)/2, 0.0], dtype=np.float64)
+v3 = np.array([0.5, -0.5, -0.5, 0.5], dtype=np.float64)
 
-# Project all rows and columns into structured bases
-row_proj_4 = [project_4basis(*A.row(i)) for i in range(n)]
-col_proj_4 = [project_4basis(*B.col(j)) for j in range(n)]
+basis_vectors = np.stack([v0, v1, v2, v3])  # shape (4, 4)
 
-# Build all C[i,j] from outer products of projected bases
-C_proj_4x4 = {}
-for i in range(n):
-    for j in range(n):
-        bilinear_terms = []
-        for u in row_proj_4[i]:
-            for v in col_proj_4[j]:
-                bilinear_terms.append(sp.simplify(u * v))
-        C_proj_4x4[f'C[{i},{j}]'] = bilinear_terms
+@njit
+def matmul_4x4_orthobasis(A, B):
+    C = np.zeros((4, 4), dtype=A.dtype)
 
-# Display selected entries
-{key: val for key, val in list(C_proj_4x4.items())[:3]}
+    # Project A rows into orthonormal basis
+    A_proj = np.empty((4, 4), dtype=A.dtype)
+    for i in range(4):
+        for k in range(4):
+            A_proj[i, k] = A[i, 0]*basis_vectors[k, 0] + A[i, 1]*basis_vectors[k, 1] + \
+                           A[i, 2]*basis_vectors[k, 2] + A[i, 3]*basis_vectors[k, 3]
+
+    # Project B columns into orthonormal basis
+    B_proj = np.empty((4, 4), dtype=A.dtype)
+    for j in range(4):
+        for k in range(4):
+            B_proj[j, k] = B[0, j]*basis_vectors[k, 0] + B[1, j]*basis_vectors[k, 1] + \
+                           B[2, j]*basis_vectors[k, 2] + B[3, j]*basis_vectors[k, 3]
+
+    # Reconstruct C from projection dot products
+    for i in range(4):
+        for j in range(4):
+            acc = 0.0
+            for k in range(4):
+                acc += A_proj[i, k] * B_proj[j, k]
+            C[i, j] = acc
+
+    return C
+
+# Run correctness test and benchmark
+C_fast_final = matmul_4x4_orthobasis(A_test, B_test)
+error_final = np.linalg.norm(C_ref - C_fast_final)
+
+start_final = time.perf_counter()
+for _ in range(iters):
+    matmul_4x4_orthobasis(A_test, B_test)
+end_final = time.perf_counter()
+
+{
+    "final_error_norm": error_final,
+    "final_time_sec": end_final - start_final,
+    "speedup_vs_numpy": (end_std - start_std) / (end_final - start_final),
+    "C_ref_rounded": np.round(C_ref, 4),
+    "C_fast_final_rounded": np.round(C_fast_final, 4),
+}
 
 
