@@ -174,6 +174,120 @@ end_opt = time.perf_counter()
     "standard_time_sec": end_std - start_std,
     "optimized_time_sec": end_opt - start_opt,
 }
+# Define the 18 scalar products used in the validated 18-op kernel
+# We will symbolically extract them and map to C[i,j] expressions
 
+# Redefine x-terms for clarity and reuse
+x0  = b00 + b10 + b20
+x1  = (a00 + a01 + a02) / 3
+x2  = b10 - b20
+x3  = -a02
+x4  = (a01 + x3) / 2
+x5  = b00 - 0.5 * b10 - 0.5 * b20
+x6  = (2*a00 - a01 + x3) / 3
+
+x7  = b01 + b11 + b21
+x8  = b11 - b21
+x9  = b01 - 0.5 * b11 - 0.5 * b21
+
+x10 = b02 + b12 + b22
+x11 = b12 - b22
+x12 = b02 - 0.5 * b12 - 0.5 * b22
+
+x13 = (a10 + a11 + a12) / 3
+x14 = -a12
+x15 = (a11 + x14) / 2
+x16 = (2*a10 - a11 + x14) / 3
+
+x17 = (a20 + a21 + a22) / 3
+x18 = -a22
+x19 = (a21 + x18) / 2
+x20 = (2*a20 - a21 + x18) / 3
+
+# Extract 18 scalar products explicitly
+products = {
+    "p0": simplify(x0 * x1),
+    "p1": simplify(x2 * x4),
+    "p2": simplify(x5 * x6),
+
+    "p3": simplify(x1 * x7),
+    "p4": simplify(x4 * x8),
+    "p5": simplify(x6 * x9),
+
+    "p6": simplify(x1 * x10),
+    "p7": simplify(x4 * x11),
+    "p8": simplify(x6 * x12),
+
+    "p9": simplify(x0 * x13),
+    "p10": simplify(x2 * x15),
+    "p11": simplify(x5 * x16),
+
+    "p12": simplify(x7 * x13),
+    "p13": simplify(x8 * x15),
+    "p14": simplify(x9 * x16),
+
+    "p15": simplify(x10 * x13),
+    "p16": simplify(x11 * x15),
+    "p17": simplify(x12 * x16),
+}
+
+products
+{'p0': (a0 + a1 + a2)*(b0 + b3 + b6)/3,
+ 'p1': (a1 - a2)*(b3 - b6)/2,
+ 'p2': (-2*a0 + a1 + a2)*(-b0 + 0.5*b3 + 0.5*b6)/3,
+ 'p3': (a0 + a1 + a2)*(b1 + b4 + b7)/3,
+ 'p4': (a1 - a2)*(b4 - b7)/2,
+ 'p5': (-2*a0 + a1 + a2)*(-b1 + 0.5*b4 + 0.5*b7)/3,
+ 'p6': (a0 + a1 + a2)*(b2 + b5 + b8)/3,
+ 'p7': (a1 - a2)*(b5 - b8)/2,
+ 'p8': (-2*a0 + a1 + a2)*(-b2 + 0.5*b5 + 0.5*b8)/3,
+ 'p9': (a3 + a4 + a5)*(b0 + b3 + b6)/3,
+ 'p10': (a4 - a5)*(b3 - b6)/2,
+ 'p11': (-2*a3 + a4 + a5)*(-b0 + 0.5*b3 + 0.5*b6)/3,
+ 'p12': (a3 + a4 + a5)*(b1 + b4 + b7)/3,
+ 'p13': (a4 - a5)*(b4 - b7)/2,
+ 'p14': (-2*a3 + a4 + a5)*(-b1 + 0.5*b4 + 0.5*b7)/3,
+ 'p15': (a3 + a4 + a5)*(b2 + b5 + b8)/3,
+ 'p16': (a4 - a5)*(b5 - b8)/2,
+ 'p17': (-2*a3 + a4 + a5)*(-b2 + 0.5*b5 + 0.5*b8)/3}
+
+Matrix multiplication at n×n can be expressed as an outer product of n-dimensional bilinear projection bases — where the projections are symmetry-derived, orthogonal components of rows and columns.
+
+# Structured projection basis (4D) for n = 4 rows and columns
+def project_4basis(v0, v1, v2, v3):
+    """Return 4 projection components for a 4-element vector."""
+    # Symmetric mean
+    s = (v0 + v1 + v2 + v3) / 4
+    # Antisymmetric outer
+    a1 = (v0 - v3) / 2
+    # Antisymmetric inner
+    a2 = (v1 - v2) / 2
+    # Residual orthogonal axis
+    r = (-3*v0 + v1 + v2 + v3) / 4
+    return (s, a1, a2, r)
+
+# Define symbolic A and B variables
+n = 4
+a_syms = sp.symbols(f'a0:{n*n}')
+b_syms = sp.symbols(f'b0:{n*n}')
+A = sp.Matrix(n, n, a_syms)
+B = sp.Matrix(n, n, b_syms)
+
+# Project all rows and columns into structured bases
+row_proj_4 = [project_4basis(*A.row(i)) for i in range(n)]
+col_proj_4 = [project_4basis(*B.col(j)) for j in range(n)]
+
+# Build all C[i,j] from outer products of projected bases
+C_proj_4x4 = {}
+for i in range(n):
+    for j in range(n):
+        bilinear_terms = []
+        for u in row_proj_4[i]:
+            for v in col_proj_4[j]:
+                bilinear_terms.append(sp.simplify(u * v))
+        C_proj_4x4[f'C[{i},{j}]'] = bilinear_terms
+
+# Display selected entries
+{key: val for key, val in list(C_proj_4x4.items())[:3]}
 
 
