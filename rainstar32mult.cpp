@@ -39,6 +39,29 @@ void matmul_23op(const float A[3][3], const float B[3][3], float C[3][3]) {
     }
 }
 
+void matmul_18op_hoisted_opt2(const float A[3][3], const float B[3][3], float C[3][3]) {
+    const float* B0 = B[0];
+    const float* B1 = B[1];
+    const float* B2 = B[2];
+
+    float SB[3], DB[3];
+    for (int k = 0; k < 3; ++k) {
+        SB[k] = B1[k] + B2[k];
+        DB[k] = B1[k] - B2[k];
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        float a0 = A[i][0];
+        float a1 = A[i][1];
+        float a2 = A[i][2];
+        float sa = a1 + a2;
+        float da = a1 - a2;
+
+        for (int k = 0; k < 3; ++k) {
+            C[i][k] = a0 * B0[k] + 0.5f * (sa * SB[k] + da * DB[k]);
+        }
+    }
+}
 
 // ------------------------------------------------------------------
 // Naive 3x3 baseline
@@ -97,13 +120,15 @@ int main() {
     srand(42);
 
     const int TRIALS = 1'000'000;
-
-    double t_custom = benchmark(matmul_23op, TRIALS);
+    
+    double t_custom18 = benchmark(matmul_18op_hoisted_opt2, TRIALS);
+    double t_custom23 = benchmark(matmul_23op, TRIALS);
     double t_naive  = benchmark(naive_matmul,  TRIALS);
     double t_eigen  = benchmark(eigen_matmul,  TRIALS);
 
     std::cout << std::fixed << std::setprecision(6);
-    std::cout << "23-op kernel : " << t_custom << " sec\n";
+    std::cout << "18-op kernel : " << t_custom18 << " sec\n";
+    std::cout << "23-op kernel : " << t_custom23 << " sec\n";
     std::cout << "Naive triple : " << t_naive  << " sec\n";
     std::cout << "Eigen        : " << t_eigen  << " sec\n";
 }
