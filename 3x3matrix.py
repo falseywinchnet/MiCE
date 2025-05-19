@@ -352,3 +352,88 @@ def matmul_5x5_orthonormal(A, B):
     return C
 
 
+for 8:
+from numba import njit
+import numpy as np
+@njit
+def generate_basis(n):
+    basis = np.zeros((n, n))
+    idx = 0
+
+    # 1. DC
+    for i in range(n):
+        basis[0, i] = 1.0
+    basis[0] /= np.sqrt(n)
+    idx += 1
+
+    # 2. Antisymmetric shell modes
+    for i in range(n // 2):
+        if i >= n - 1 - i:
+            break
+        v = np.zeros(n)
+        v[i] = 1.0
+        v[n - 1 - i] = -1.0
+        v /= np.linalg.norm(v)
+        basis[idx] = v
+        idx += 1
+
+    # 3. Residual symmetric modes (hardcoded pattern match up to 3)
+    rem = n - idx
+    if rem >= 1:
+        v1 = np.full(n, -1.0)
+        v1[0] = v1[-1] = 3.0
+        v1 /= np.linalg.norm(v1)
+        basis[idx] = v1
+        idx += 1
+
+    if rem >= 2:
+        v2 = np.full(n, -1.0)
+        v2[1] = v2[-2] = 2.0
+        v2[0] = v2[-1] = 0.0
+        v2 /= np.linalg.norm(v2)
+        basis[idx] = v2
+        idx += 1
+
+    if rem >= 3:
+        v3 = np.zeros(n)
+        v3[2] = 1.0
+        v3[3] = -1.0
+        v3[4] = -1.0
+        v3[5] = 1.0
+        v3 /= np.linalg.norm(v3)
+        basis[idx] = v3
+        idx += 1
+
+    return basis
+
+@njit
+def matmul_structured(A, B):
+    n = A.shape[0]
+    V = generate_basis(n)
+    C = np.zeros((n, n))
+
+    # Project rows of A
+    A_proj = np.zeros((n, n))
+    for i in range(n):
+        for k in range(n):
+            for j in range(n):
+                A_proj[i, k] += A[i, j] * V[k, j]
+
+    # Project columns of B
+    B_proj = np.zeros((n, n))
+    for j in range(n):
+        for k in range(n):
+            for i in range(n):
+                B_proj[j, k] += B[i, j] * V[k, i]
+
+    # Reconstruct C
+    for i in range(n):
+        for j in range(n):
+            for k in range(n):
+                C[i, j] += A_proj[i, k] * B_proj[j, k]
+
+    return C
+
+
+
+
