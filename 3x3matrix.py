@@ -311,3 +311,44 @@ end_final = time.perf_counter()
 }
 
 
+import numpy as np
+from numba import njit
+
+# Precomputed orthonormal basis for n=5
+basis_5 = np.array([
+    [1/np.sqrt(5)] * 5,
+    [np.sqrt(2)/2, 0, 0, 0, -np.sqrt(2)/2],
+    [0, np.sqrt(2)/2, 0, -np.sqrt(2)/2, 0],
+    [0.5, -0.5, 0, -0.5, 0.5],
+    [-np.sqrt(5)/10, -np.sqrt(5)/10, 2*np.sqrt(5)/5, -np.sqrt(5)/10, -np.sqrt(5)/10],
+], dtype=np.float64)
+
+@njit
+def matmul_5x5_orthonormal(A, B):
+    C = np.zeros((5, 5), dtype=A.dtype)
+    A_proj = np.zeros((5, 5), dtype=A.dtype)
+    B_proj = np.zeros((5, 5), dtype=A.dtype)
+
+    # Project rows of A into basis
+    for i in range(5):
+        for k in range(5):
+            for j in range(5):
+                A_proj[i, k] += A[i, j] * basis_5[k, j]
+
+    # Project columns of B into basis
+    for j in range(5):
+        for k in range(5):
+            for i_ in range(5):
+                B_proj[j, k] += B[i_, j] * basis_5[k, i_]
+
+    # Combine projections into final matrix
+    for i in range(5):
+        for j in range(5):
+            acc = 0.0
+            for k in range(5):
+                acc += A_proj[i, k] * B_proj[j, k]
+            C[i, j] = acc
+
+    return C
+
+
