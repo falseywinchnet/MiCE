@@ -499,4 +499,126 @@ def matmul_structured_test(A, B):
             for k in range(n):
                 C[i, j] += Ap[i, k] * Bp[j, k]
     return C
+import numpy as np
+
+# --- Gram-Schmidt Helpers ---
+
+def gram_schmidt(vectors):
+    basis = []
+    for v in vectors:
+        v = np.array(v, dtype=float)
+        for b in basis:
+            v -= np.dot(v, b) * b
+        norm = np.linalg.norm(v)
+        if norm > 1e-10:
+            basis.append(v / norm)
+    return basis
+
+def complete_orthonormal_basis(initial, n):
+    basis = gram_schmidt(initial)
+    while len(basis) < n:
+        v = np.random.randn(n)
+        for b in basis:
+            v -= np.dot(v, b) * b
+        norm = np.linalg.norm(v)
+        if norm > 1e-10:
+            basis.append(v / norm)
+    return basis
+
+# --- Shell Generators ---
+
+def generate_antisymmetric_shells(n):
+    shells = []
+    for i in range(n // 2):
+        v = np.zeros(n)
+        v[i] = 1
+        v[n - 1 - i] = -1
+        shells.append(v)
+    return shells
+
+def generate_even_symmetric_shells(n):
+    shells = []
+    depth = (n // 2) - 1
+    for d in range(depth):
+        v = np.full(n, -1.0)
+        outer = depth - d
+        v[d] = v[n - 1 - d] = outer
+        shells.append(v)
+    return shells
+
+def generate_odd_symmetric_shells(n):
+    shells = []
+    m = (n - 1) // 2
+
+    # Intermediate shells with zero center
+    for k in range(m - 1):
+        v = np.zeros(n)
+        val = (m - 1) - k
+        v[k] = val
+        v[n - 1 - k] = val
+        for j in range(k + 1, m):
+            v[j] = -1
+            v[n - 1 - j] = -1
+        shells.append(v)
+
+    # Final residual with center value
+    v_final = -np.ones(n)
+    v_final[m] = n - 1
+    shells.append(v_final)
+    return shells
+
+# --- Full Basis Constructor ---
+
+def generate_basis(n):
+    basis = []
+
+    # DC vector
+    basis.append(np.ones(n))
+
+    # Antisymmetric shells
+    basis.extend(generate_antisymmetric_shells(n))
+
+    # Symmetric residuals
+    if n % 2 == 0:
+        basis.extend(generate_even_symmetric_shells(n))
+    else:
+        basis.extend(generate_odd_symmetric_shells(n))
+
+    return complete_orthonormal_basis(basis, n)
+
+# --- Matmul via projection/reconstruction ---
+
+def matmul_projected(A, B):
+    n = A.shape[0]
+    V = generate_basis(n)
+
+    A_proj = np.zeros((n, n))
+    B_proj = np.zeros((n, n))
+    C = np.zeros((n, n))
+
+    for i in range(n):
+        for k in range(n):
+            A_proj[i, k] = np.dot(A[i], V[k])
+
+    for j in range(n):
+        for k in range(n):
+            B_proj[j, k] = np.dot(B[:, j], V[k])
+
+    for i in range(n):
+        for j in range(n):
+            C[i, j] = np.dot(A_proj[i], B_proj[j])
+
+    return C
+
+# Return all functions in a module-like dict
+all_code_objects = {
+    "gram_schmidt": gram_schmidt,
+    "complete_orthonormal_basis": complete_orthonormal_basis,
+    "generate_antisymmetric_shells": generate_antisymmetric_shells,
+    "generate_even_symmetric_shells": generate_even_symmetric_shells,
+    "generate_odd_symmetric_shells": generate_odd_symmetric_shells,
+    "generate_basis": generate_basis,
+    "matmul_projected": matmul_projected,
+}
+all_code_objects
 
