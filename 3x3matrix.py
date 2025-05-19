@@ -1,5 +1,55 @@
 #Vibe coded. Reverse engineered from FFT ops with lots of coaxing and chatgpt 4o. o3 kept protesting it cant be done.
 
+
+@njit
+def matmul_18op_fused_adds(A, B):
+    C = np.zeros((3, 3), dtype=np.float32)
+    ONE_THIRD = 1.0 / 3.0
+    ONE_HALF  = 0.5
+
+    # Precompute B-side vector components
+    T2 = np.empty(3, dtype=np.float32)
+    Bdiff = np.empty(3, dtype=np.float32)
+    Z = np.empty(3, dtype=np.float32)
+    Bc = np.empty(3, dtype=np.float32)
+    Bskew = np.empty(3, dtype=np.float32)
+
+    for j in range(3):
+        T2[j] = B[1][j] + B[2][j]
+        Bdiff[j] = B[1][j] - B[2][j]
+        Z[j] = B[0][j] - B[2][j]
+        Bc[j] = B[0][j] + T2[j]
+        Bskew[j] = Z[j] - ONE_HALF * Bdiff[j]  # fused form
+
+    for i in range(3):
+        S0 = ONE_THIRD * (A[i][0] + A[i][1] + A[i][2])
+        S1 = ONE_HALF * (A[i][1] - A[i][2])
+        S2 = ONE_THIRD * (2*A[i][0] - A[i][1] - A[i][2])  # unfused form
+
+        for j in range(3):
+            C[i][j] = S0 * Bc[j] + S1 * Bdiff[j] + S2 * Bskew[j]
+
+    return C
+
+# Recompute and compare with reference
+C_fused = matmul_18op_fused_adds(A_test, B_test)
+error_fused = np.max(np.abs(C_fused - C_ref))
+
+C_fused, error_fused
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @njit
 def validated_23op_matmul(A, B):
     C = np.empty((3, 3), dtype=A.dtype)
