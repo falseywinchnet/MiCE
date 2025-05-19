@@ -434,6 +434,69 @@ def matmul_structured(A, B):
 
     return C
 
+def generate_residual_shells_integer(n):
+    """Construct unnormalized residual symmetric shell vectors using integer patterns only."""
+    assert n % 2 == 0, "Only even n supported here"
+    shells = []
+    depth = (n // 2) - 1  # number of residual modes
 
+    for d in range(depth):
+        v = np.zeros(n, dtype=int)
+        outer = depth - d
+        for i in range(d, n - d):
+            v[i] = -1
+        v[d] = v[n - 1 - d] = outer
+        shells.append(v.tolist())
+    return shells
+def generate_basis_with_shells(n):
+    basis = []
 
+    # 1. DC
+    v_dc = np.ones(n)
+    v_dc /= np.linalg.norm(v_dc)
+    basis.append(v_dc)
+
+    # 2. Antisymmetric shell modes
+    for i in range(n // 2):
+        if i >= n - 1 - i:
+            break
+        v = np.zeros(n)
+        v[i] = 1.0
+        v[n - 1 - i] = -1.0
+        v /= np.linalg.norm(v)
+        basis.append(v)
+
+    # 3. Residual symmetric shell modes (integer-form, unnormalized, then normalize)
+    if n % 2 == 0:
+        residuals = generate_residual_shells_integer(n)
+        for vec in residuals:
+            v = np.array(vec, dtype=float)
+            v /= np.linalg.norm(v)
+            basis.append(v)
+
+    # 4. Complete with orthonormal complement
+    basis_matrix = gram_schmidt_complete(basis, n)
+    return basis_matrix
+
+# Reuse projection matmul
+def matmul_structured_test(A, B):
+    n = A.shape[0]
+    basis = generate_basis_with_shells(n)
+
+    # Projections
+    Ap = np.zeros((n, n))
+    Bp = np.zeros((n, n))
+    for i in range(n):
+        for k in range(n):
+            Ap[i, k] = np.dot(A[i], basis[k])
+    for j in range(n):
+        for k in range(n):
+            Bp[j, k] = np.dot(B[:, j], basis[k])
+    # Reconstruction
+    C = np.zeros((n, n))
+    for i in range(n):
+        for j in range(n):
+            for k in range(n):
+                C[i, j] += Ap[i, k] * Bp[j, k]
+    return C
 
