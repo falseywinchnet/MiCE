@@ -1,15 +1,16 @@
 #copyright rainstar 2025
 # Optimized 4x4 matrix multiplication using hoisted symmetry (generalized from 3x3 approach)
+#copyright joshuah.rainstar@gmail.com 2025
 @njit
-def matmul_4x4_fused_opt(A, B):
+def matmul_4x4_fused_opt_scaled(A, B):
     C = np.zeros((4, 4))
 
-    # Hoist symmetric terms for (1,2) mirror pairs across columns
+    # Hoist and scale SB12, DB12 once
     SB12 = np.empty(4)
     DB12 = np.empty(4)
     for j in range(4):
-        SB12[j] = B[1, j] + B[2, j]
-        DB12[j] = B[1, j] - B[2, j]
+        SB12[j] = 0.5 * (B[1, j] + B[2, j])
+        DB12[j] = 0.5 * (B[1, j] - B[2, j])
 
     for i in range(4):
         a0 = A[i, 0]
@@ -27,19 +28,19 @@ def matmul_4x4_fused_opt(A, B):
             db12 = DB12[j]
 
             C[i, j] = a0 * b0 + a3 * b3
-            C[i, j] += 0.5 * (sa12 * sb12 + da12 * db12)
+            C[i, j] += sa12 * sb12 + da12 * db12
 
     return C
 
 # Evaluate accuracy and timing
-C_fused_opt = matmul_4x4_fused_opt(A, B)
-accuracy_error_fused_opt = np.max(np.abs(C_naive - C_fused_opt))
+C_scaled = matmul_4x4_fused_opt_scaled(A, B)
+accuracy_error_scaled = np.max(np.abs(C_naive - C_scaled))
 
-start_fused_opt = time.time()
+start_scaled = time.time()
 for _ in range(10000):
-    matmul_4x4_fused_opt(A, B)
-end_fused_opt = time.time()
+    matmul_4x4_fused_opt_scaled(A, B)
+end_scaled = time.time()
 
-fused_opt_time = end_fused_opt - start_fused_opt
+scaled_time = end_scaled - start_scaled
 
-accuracy_error_fused_opt, fused_opt_time
+accuracy_error_scaled, scaled_time
