@@ -57,8 +57,11 @@ void matmul_18op_hoisted_opt2(const float A[3][3], const float B[3][3], float C[
         float sa = a1 + a2;
         float da = a1 - a2;
 
+        float coeffs[3] = {a0, 0.5f * sa, 0.5f * da};
+
         for (int k = 0; k < 3; ++k) {
-            C[i][k] = a0 * B0[k] + 0.5f * (sa * SB[k] + da * DB[k]);
+            float vecs[3] = {B0[k], SB[k], DB[k]};
+            C[i][k] = dot3(coeffs, vecs);
         }
     }
 }
