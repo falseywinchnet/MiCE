@@ -18,7 +18,7 @@ import torch.nn.functional as F
 from .positive_linear import PositiveLinear3DHK
 from .convex_gate     import ConvexGate
 
-__all__ = ["BatchedICNN","BatchedSingleICNN"]
+__all__ = ["BatchedICNN","BatchedSingleICNN","ICNN"]
 
 class BatchedSingleICNN(nn.Module):
     """
