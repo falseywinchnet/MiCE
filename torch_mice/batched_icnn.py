@@ -15,7 +15,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .positive_linear import PositiveLinear3DHK
+from .positive_linear import PositiveLinear3DHK,PositiveLinearHK
 from .convex_gate     import ConvexGate
 
 __all__ = ["BatchedICNN","BatchedSingleICNN","ICNN"]
