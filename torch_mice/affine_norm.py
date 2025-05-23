@@ -11,7 +11,18 @@ import torch.nn.functional as F
 # This introduces nonlinear dependencies on x, breaking convexity due to division by x-dependent std(x).
 # BatchAffineNorm uses frozen global stats and affine transformations, preserving convexity in x.
 
-__all__ = ["BatchAffineNorm"]
+__all__ = ["BatchAffineNorm","ConvexSafeNorm"]
+
+class ConvexSafeNorm(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.gamma = nn.Parameter(torch.ones(dim))
+        self.beta = nn.Parameter(torch.zeros(dim))
+
+    def forward(self, x):
+        # x: (B, T, D)
+        mean = x.mean(dim=-1, keepdim=True)  # mean over feature dim
+        x = x - mean
 
 class BatchAffineNorm(nn.Module):
     def __init__(self, dim, eps=1e-6, momentum=2e-3):
