@@ -134,3 +134,72 @@ class BatchedICNN(nn.Module):
 
         # 7) permute to (N, P, D_out)
         return out_p.permute(1, 0, 2)
+
+
+class ICNN(nn.Module):
+    """
+    Input-Convex Neural Network for a single convex pathway (no petal dimension),
+    using strictly positive weights (Hoedt–Klambauer) and convex gates.
+
+    Args:
+        in_dim:   dimensionality of input D
+        out_dim:  dimensionality of output D_out
+
+    Input:
+        x: (..., D)
+
+    Output:
+        out: (..., D_out)
+    """
+    def __init__(self, in_dim: int, out_dim: int):
+        super().__init__()
+        self.in_dim  = in_dim
+        self.out_dim = out_dim
+
+        D      = in_dim
+        D_out  = out_dim
+        self.d1 = 2 * D
+        self.d2 = D_out
+
+        # Core convex layers (positive linear maps)
+        self.layer0   = PositiveLinearHK(D,      self.d1)
+        self.layer1   = PositiveLinearHK(self.d1, self.d2)
+        self.res_proj = PositiveLinearHK(2 * D,  self.d2)
+
+        # Convex gates (shared for all inputs)
+        self.gate0_net = ConvexGate(D, self.d1)
+        self.gate1_net = ConvexGate(D, self.d2)
+
+        self.out_bias = nn.Parameter(torch.zeros(self.d2))
+        self.act      = nn.Softplus()
+
+    def forward(self, x_p: torch.Tensor, x_flat: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x_p:    (N, D_in) — warped input
+            x_flat: (N, D_in) — original input for gates
+        Returns:
+            (N, D_out)
+        """
+        N, D = x_p.shape
+        assert D == self.in_dim
+        assert x_flat.shape == (N, D)
+
+        # Gates
+        g0 = self.gate0_net(x_flat)  # (N, d1)
+        g1 = self.gate1_net(x_flat)  # (N, d2)
+
+        # Layer 0
+        z0 = self.act(self.layer0(x_p) + g0)  # (N, d1)
+
+        # Layer 1
+        z1 = self.act(self.layer1(z0) + g1)   # (N, d2)
+
+        # Residual
+        res_in = torch.cat([x_p, x_p], dim=-1)  # (N, 2*D)
+        res = self.res_proj(res_in)             # (N, d2)
+
+        # Output
+        out = self.act(z1 + res) + self.out_bias  # (N, D_out)
+
+        return out
