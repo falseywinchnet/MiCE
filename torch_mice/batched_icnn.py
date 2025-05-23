@@ -156,50 +156,50 @@ class ICNN(nn.Module):
         self.in_dim  = in_dim
         self.out_dim = out_dim
 
-        D      = in_dim
-        D_out  = out_dim
+        D     = in_dim
+        D_out = out_dim
         self.d1 = 2 * D
         self.d2 = D_out
 
-        # Core convex layers (positive linear maps)
-        self.layer0   = PositiveLinearHK(D,      self.d1)
+        # Core convex layers
+        self.layer0   = PositiveLinearHK(D, self.d1)
         self.layer1   = PositiveLinearHK(self.d1, self.d2)
-        self.res_proj = PositiveLinearHK(2 * D,  self.d2)
+        self.res_proj = PositiveLinearHK(2 * D, self.d2)
 
-        # Convex gates (shared for all inputs)
+        # Convex gates
         self.gate0_net = ConvexGate(D, self.d1)
         self.gate1_net = ConvexGate(D, self.d2)
 
         self.out_bias = nn.Parameter(torch.zeros(self.d2))
         self.act      = nn.Softplus()
 
-    def forward(self, x_p: torch.Tensor, x_flat: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            x_p:    (N, D_in) — warped input
-            x_flat: (N, D_in) — original input for gates
+            x: (B, T, D_in) — batched sequences of input vectors
         Returns:
-            (N, D_out)
+            (B, T, D_out) — batched sequences of output vectors
         """
-        N, D = x_p.shape
+        B, T, D = x.shape
         assert D == self.in_dim
-        assert x_flat.shape == (N, D)
-
+    
+        # Flatten for linear layers: (B * T, D)
+        x_flat = x.view(-1, D)
+    
         # Gates
-        g0 = self.gate0_net(x_flat)  # (N, d1)
-        g1 = self.gate1_net(x_flat)  # (N, d2)
-
-        # Layer 0
-        z0 = self.act(self.layer0(x_p) + g0)  # (N, d1)
-
-        # Layer 1
-        z1 = self.act(self.layer1(z0) + g1)   # (N, d2)
-
-        # Residual
-        res_in = torch.cat([x_p, x_p], dim=-1)  # (N, 2*D)
-        res = self.res_proj(res_in)             # (N, d2)
-
-        # Output
-        out = self.act(z1 + res) + self.out_bias  # (N, D_out)
-
+        g0 = self.gate0_net(x_flat)  # (B*T, d1)
+        g1 = self.gate1_net(x_flat)  # (B*T, d2)
+    
+        # Layers
+        z0 = self.act(self.layer0(x_flat) + g0)   # (B*T, d1)
+        z1 = self.act(self.layer1(z0) + g1)       # (B*T, d2)
+    
+        # Residual path
+        res_in = torch.cat([x_flat, x_flat], dim=-1)  # (B*T, 2*D)
+        res    = self.res_proj(res_in)                # (B*T, d2)
+    
+        # Combine and reshape
+        out = self.act(z1 + res) + self.out_bias      # (B*T, d2)
+        out = out.view(B, T, self.d2)                 # (B, T, D_out)
+    
         return out
