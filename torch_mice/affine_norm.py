@@ -23,6 +23,7 @@ class ConvexSafeNorm(nn.Module):
         # x: (B, T, D)
         mean = x.mean(dim=-1, keepdim=True)  # mean over feature dim
         x = x - mean
+        return x * self.gamma + self.beta
 
 class BatchAffineNorm(nn.Module):
     def __init__(self, dim, eps=1e-6, momentum=2e-3):
